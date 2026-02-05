@@ -13,7 +13,7 @@ Flutter applicatie voor het reserveren van ruimtes in blokken van 30 minuten. Ge
   - **Business Logic**: State management met Provider
   - **Presentation**: Screens en widgets
 
-## Project Structuur
+## Project Structuur/resu
 
 Het project bestaat uit twee delen:
 - **roosterapp_server**: Serverpod backend (nieuwe directory)
@@ -26,7 +26,7 @@ Serverpod genereert automatisch type-safe models voor client en server. Models w
 ### Benodigde protocol bestanden:
 
 **roosterapp_server/lib/src/protocol/room.yaml**
-```yaml
+```yam
 class: Room
 table: rooms
 fields:
@@ -137,7 +137,7 @@ class AuthEndpoint extends Endpoint {
 class RoomEndpoint extends Endpoint {
   // GET /room/list
   Future<List<Room>> getRooms()
-
+c
   // POST /room/create (admin only)
   Future<Room> createRoom(String name, String? description)
 
