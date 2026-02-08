@@ -5,6 +5,7 @@ import '../providers/room_provider.dart';
 import '../providers/reservation_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
+import '../widgets/app_header.dart';
 
 enum DashboardView { choice, weekList, quarterList, weekDetail, quarterDetail }
 
@@ -138,6 +139,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                 ),
               ],
             ),
+          const AppHeaderActions(showDate: true),
         ],
       ),
       body: _buildContent(),

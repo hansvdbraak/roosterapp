@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/reservation_provider.dart';
 import '../models/user.dart';
 import '../models/reservation.dart';
+import '../widgets/app_header.dart';
 
 class SimpleUserOverviewScreen extends StatefulWidget {
   const SimpleUserOverviewScreen({super.key});
@@ -165,6 +166,9 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
                 onPressed: _goBack,
               )
             : null,
+        actions: const [
+          AppHeaderActions(showDate: true),
+        ],
       ),
       body: _selectedUser == null
           ? _buildUserList()

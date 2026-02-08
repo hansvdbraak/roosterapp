@@ -8,6 +8,7 @@ import '../models/room.dart';
 import '../models/time_slot.dart';
 import '../models/reservation.dart';
 import '../models/user.dart';
+import '../widgets/app_header.dart';
 
 class RoomDetailScreen extends StatefulWidget {
   final Room room;
@@ -338,6 +339,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 ),
               ],
             ),
+          AppHeaderActions(
+            selectedDate: _selectedDate,
+            showDate: true,
+          ),
         ],
       ),
       body: Column(

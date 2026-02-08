@@ -137,7 +137,7 @@ class AuthEndpoint extends Endpoint {
 class RoomEndpoint extends Endpoint {
   // GET /room/list
   Future<List<Room>> getRooms()
-c
+  chel
   // POST /room/create (admin only)
   Future<Room> createRoom(String name, String? description)
 

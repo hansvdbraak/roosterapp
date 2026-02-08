@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
+import '../widgets/app_header.dart';
 
 class UserManagementScreen extends StatelessWidget {
   const UserManagementScreen({super.key});
@@ -16,6 +17,9 @@ class UserManagementScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gebruikersbeheer'),
+        actions: const [
+          AppHeaderActions(showDate: true),
+        ],
       ),
       body: users.isEmpty
           ? const Center(child: Text('Geen gebruikers gevonden'))

@@ -15,7 +15,7 @@ class AppConfig {
   /// - Development lokaal: 'localhost' of '127.0.0.1'
   /// - Development netwerk: '192.168.1.100'
   /// - Productie: 'api.4ub2b.com'
-  static const String serverHost = 'localhost';
+  static const String serverHost = 'rooster.4ub2b.com';
 
   /// Server poort
   ///
@@ -23,13 +23,13 @@ class AppConfig {
   /// - Development: 8080
   /// - Productie HTTP: 80
   /// - Productie HTTPS: 443
-  static const int serverPort = 8080;
+  static const int serverPort = 443;
 
   /// Gebruik HTTPS voor verbinding
   ///
   /// - Development: false (tenzij je lokaal SSL hebt)
   /// - Productie: true
-  static const bool useHttps = false;
+  static const bool useHttps = true;
 
   // ==========================================================================
   // APP INFORMATIE

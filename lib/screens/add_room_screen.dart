@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/room_provider.dart';
+import '../widgets/app_header.dart';
 
 class AddRoomScreen extends StatefulWidget {
   const AddRoomScreen({super.key});
@@ -61,6 +62,9 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nieuwe Ruimte'),
+        actions: const [
+          AppHeaderActions(showDate: true),
+        ],
       ),
       body: Form(
         key: _formKey,
