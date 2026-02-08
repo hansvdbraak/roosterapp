@@ -13,7 +13,7 @@ Flutter applicatie voor het reserveren van ruimtes in blokken van 30 minuten. Ge
   - **Business Logic**: State management met Provider
   - **Presentation**: Screens en widgets
 
-## Project Structuur/resu
+## Project Structuur
 
 Het project bestaat uit twee delen:
 - **roosterapp_server**: Serverpod backend (nieuwe directory)
@@ -26,7 +26,7 @@ Serverpod genereert automatisch type-safe models voor client en server. Models w
 ### Benodigde protocol bestanden:
 
 **roosterapp_server/lib/src/protocol/room.yaml**
-```yam
+```yaml
 class: Room
 table: rooms
 fields:
@@ -137,7 +137,7 @@ class AuthEndpoint extends Endpoint {
 class RoomEndpoint extends Endpoint {
   // GET /room/list
   Future<List<Room>> getRooms()
-  chel
+
   // POST /room/create (admin only)
   Future<Room> createRoom(String name, String? description)
 
@@ -179,9 +179,9 @@ class AuthProvider extends ChangeNotifier {
   static const String ADMIN_PIN = "1234";
 
   // Methods (roepen Serverpod endpoints aan):
-  - Future<void> loginAsUser(String userName)
-  - Future<bool> loginAsAdmin(String pin)
-  - Future<void> logout()
+  Future<void> loginAsUser(String userName);
+  Future<bool> loginAsAdmin(String pin);
+  Future<void> logout();
 }
 ```
 
@@ -192,10 +192,10 @@ class RoomProvider extends ChangeNotifier {
   List<Room> _rooms = [];
 
   // Methods (roepen Serverpod endpoints aan):
-  - Future<void> loadRooms()
-  - Future<Room> addRoom(String name, String? description)
-  - Future<void> deleteRoom(int roomId)
-  - Room? getRoomById(int id)
+  Future<void> loadRooms();
+  Future<Room> addRoom(String name, String? description);
+  Future<void> deleteRoom(int roomId);
+  Room? getRoomById(int id);
 }
 ```
 
@@ -206,12 +206,12 @@ class ReservationProvider extends ChangeNotifier {
   List<Reservation> _reservations = [];
 
   // Methods (roepen Serverpod endpoints aan):
-  - Future<void> loadReservations(int roomId, DateTime date)
-  - Future<Reservation> createReservation(int roomId, String bookerName, DateTime date, int slotIndex)
-  - Future<void> cancelReservation(int reservationId, String userName, bool isAdmin)
-  - Future<List<Reservation>> getReservationsForRoom(int roomId, DateTime date)
-  - Future<Reservation?> getReservationForSlot(int roomId, DateTime date, int slotIndex)
-  - Future<bool> isSlotAvailable(int roomId, DateTime date, int slotIndex)
+  Future<void> loadReservations(int roomId, DateTime date);
+  Future<Reservation> createReservation(int roomId, String bookerName, DateTime date, int slotIndex);
+  Future<void> cancelReservation(int reservationId, String userName, bool isAdmin);
+  Future<List<Reservation>> getReservationsForRoom(int roomId, DateTime date);
+  Future<Reservation?> getReservationForSlot(int roomId, DateTime date, int slotIndex);
+  Future<bool> isSlotAvailable(int roomId, DateTime date, int slotIndex);
 }
 ```
 
