@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../config/version.dart';
 import 'room_list_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
@@ -130,6 +131,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   'Ruimte Reserveringssysteem',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey[600],
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'V ${AppVersion.version}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[500],
                       ),
                 ),
                 const SizedBox(height: 48),
