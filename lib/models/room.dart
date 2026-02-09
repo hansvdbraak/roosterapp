@@ -2,6 +2,7 @@ class Room {
   final int id;
   final String name;
   final String? description;
+  final String? imageUrl; // URL naar ruimte afbeelding
   final DateTime createdAt;
   final bool isObsolete; // Overbodig - niet meer te boeken maar wel zichtbaar
 
@@ -9,6 +10,7 @@ class Room {
     required this.id,
     required this.name,
     this.description,
+    this.imageUrl,
     DateTime? createdAt,
     this.isObsolete = false,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -20,6 +22,7 @@ class Room {
     int? id,
     String? name,
     String? description,
+    String? imageUrl,
     DateTime? createdAt,
     bool? isObsolete,
   }) {
@@ -27,6 +30,7 @@ class Room {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       isObsolete: isObsolete ?? this.isObsolete,
     );

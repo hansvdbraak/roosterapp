@@ -14,12 +14,14 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _imageUrlController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -29,9 +31,15 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Gebruik standaard achtergrond als geen custom URL is opgegeven
+      final imageUrl = _imageUrlController.text.isEmpty
+          ? 'https://rooster.4ub2b.com/assets/images/zaal.jpg'
+          : _imageUrlController.text;
+
       await context.read<RoomProvider>().addRoom(
             _nameController.text,
             _descriptionController.text.isEmpty ? null : _descriptionController.text,
+            imageUrl,
           );
 
       if (mounted) {
@@ -97,6 +105,25 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                 prefixIcon: Icon(Icons.description),
               ),
               maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _imageUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Afbeelding URL (optioneel)',
+                hintText: 'https://example.com/room-image.jpg',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.image),
+              ),
+              keyboardType: TextInputType.url,
+              validator: (value) {
+                if (value != null && value.isNotEmpty) {
+                  if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                    return 'URL moet beginnen met http:// of https://';
+                  }
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 32),
             Row(

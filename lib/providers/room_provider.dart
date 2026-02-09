@@ -27,6 +27,7 @@ class RoomProvider extends ChangeNotifier {
       id: serverRoom.id ?? 0,
       name: serverRoom.name,
       description: serverRoom.description,
+      imageUrl: serverRoom.imageUrl,
       isObsolete: !serverRoom.isBookable,
     );
   }
@@ -42,7 +43,7 @@ class RoomProvider extends ChangeNotifier {
   }
 
   /// Nieuwe ruimte toevoegen (alleen superuser)
-  Future<Room> addRoom(String name, String? description) async {
+  Future<Room> addRoom(String name, String? description, [String? imageUrl]) async {
     if (name.trim().isEmpty) {
       throw Exception('Ruimte naam mag niet leeg zijn');
     }
@@ -51,6 +52,7 @@ class RoomProvider extends ChangeNotifier {
       final serverRoom = await serverpodClient.room.createRoom(
         name: name,
         description: description,
+        imageUrl: imageUrl,
       );
 
       await loadRooms();

@@ -329,15 +329,48 @@ class _RoomCard extends StatelessWidget {
     return SizedBox(
       width: constrainedWidth,
       child: Card(
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
+          child: Stack(
+            children: [
+              // Achtergrond afbeelding
+              if (room.imageUrl != null && room.imageUrl!.isNotEmpty)
+                Positioned.fill(
+                  child: Image.network(
+                    room.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200]),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(color: Colors.grey[100]);
+                    },
+                  ),
+                ),
+              // Semi-transparante overlay voor leesbaarheid
+              if (room.imageUrl != null && room.imageUrl!.isNotEmpty)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.1),
+                          Colors.black.withOpacity(0.35),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                 Row(
                   children: [
                     Container(
@@ -354,11 +387,12 @@ class _RoomCard extends StatelessWidget {
                         room.name,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: room.imageUrl != null && room.imageUrl!.isNotEmpty ? Colors.white : null,
                             ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 20),
+                    Icon(Icons.chevron_right, size: 20, color: room.imageUrl != null && room.imageUrl!.isNotEmpty ? Colors.white : null),
                   ],
                 ),
                 if (room.description != null) ...[
@@ -366,7 +400,7 @@ class _RoomCard extends StatelessWidget {
                   Text(
                     room.description!,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                          color: room.imageUrl != null && room.imageUrl!.isNotEmpty ? Colors.white70 : Colors.grey[600],
                         ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -375,14 +409,22 @@ class _RoomCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 16, color: statusColor),
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: room.imageUrl != null && room.imageUrl!.isNotEmpty
+                          ? (statusText == 'Beschikbaar' ? const Color(0xFF7FFF00) : Colors.white)
+                          : statusColor,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       statusText,
                       style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
+                        color: room.imageUrl != null && room.imageUrl!.isNotEmpty
+                            ? (statusText == 'Beschikbaar' ? const Color(0xFF7FFF00) : Colors.white)
+                            : statusColor,
+                        fontWeight: statusText == 'Beschikbaar' ? FontWeight.bold : FontWeight.w500,
+                        fontSize: 16,
                       ),
                     ),
                   ],
@@ -392,13 +434,15 @@ class _RoomCard extends StatelessWidget {
                   Text(
                     currentBooker,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
+                          color: room.imageUrl != null && room.imageUrl!.isNotEmpty ? Colors.white70 : Colors.grey[600],
                         ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ],
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
