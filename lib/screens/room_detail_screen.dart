@@ -26,11 +26,14 @@ class RoomDetailScreen extends StatefulWidget {
 
 class _RoomDetailScreenState extends State<RoomDetailScreen> {
   late DateTime _selectedDate;
+  late DateTime _dayPartWeekStart;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate;
+    final now = DateTime.now();
+    _dayPartWeekStart = DateTime(now.year, now.month, now.day);
   }
 
   void _previousDay() {
@@ -51,7 +54,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
 
-    final confirm = await showDialog<bool>(
+    final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Bevestig Boeking'),
@@ -60,43 +63,61 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text('Annuleren'),
           ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, 'weekly'),
+            child: const Text('Wekelijks herhalen'),
+          ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, 'once'),
             child: const Text('Boeken'),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
+    if (choice == null || !mounted) return;
+
+    final dates = choice == 'weekly'
+        ? List.generate(4, (i) => _selectedDate.add(Duration(days: 7 * i)))
+        : [_selectedDate];
+
+    int success = 0;
+    final errors = <String>[];
+    for (final date in dates) {
       try {
         await reservationProvider.createReservation(
           roomId: widget.room.id,
           bookerName: authProvider.userName,
-          date: _selectedDate,
+          date: date,
           slotIndex: slot.slotIndex,
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reservering aangemaakt!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+        success++;
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        errors.add(e.toString().replaceAll('Exception: ', ''));
       }
+    }
+
+    if (!mounted) return;
+    if (success > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success == 1
+              ? 'Reservering aangemaakt!'
+              : '$success reserveringen aangemaakt!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+    if (errors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errors.first),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -153,60 +174,79 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     }
   }
 
-  Future<void> _bookDayPart(DayPart dayPart) async {
+  Future<void> _bookDayPart(DayPart dayPart, DateTime date) async {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
+    final dateLabel = DateFormat('EEEE d MMMM', 'nl').format(date);
 
-    final confirm = await showDialog<bool>(
+    final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Bevestig Boeking'),
         content: Text(
-          'Wil je ${widget.room.name} boeken voor de ${dayPart.displayName.toLowerCase()} (${dayPart.timeRange})?',
+          'Wil je ${widget.room.name} boeken voor de ${dayPart.displayName.toLowerCase()} (${dayPart.timeRange}) op $dateLabel?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text('Annuleren'),
           ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, 'weekly'),
+            child: const Text('Wekelijks herhalen'),
+          ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, 'once'),
             child: const Text('Boeken'),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
+    if (choice == null || !mounted) return;
+
+    final dates = choice == 'weekly'
+        ? List.generate(4, (i) => date.add(Duration(days: 7 * i)))
+        : [date];
+
+    int success = 0;
+    final errors = <String>[];
+    for (final d in dates) {
       try {
         await reservationProvider.createDayPartReservation(
           roomId: widget.room.id,
           bookerName: authProvider.userName,
-          date: _selectedDate,
+          date: d,
           dayPart: dayPart,
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${dayPart.displayName} geboekt!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+        success++;
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        errors.add(e.toString().replaceAll('Exception: ', ''));
       }
+    }
+
+    if (!mounted) return;
+    if (success > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success == 1
+              ? '${dayPart.displayName} geboekt!'
+              : '$success × ${dayPart.displayName.toLowerCase()} geboekt!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+    if (errors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errors.first),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  Future<void> _cancelDayPart(DayPart dayPart) async {
+  Future<void> _cancelDayPart(DayPart dayPart, DateTime date) async {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
 
@@ -235,7 +275,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       try {
         await reservationProvider.cancelDayPartReservation(
           roomId: widget.room.id,
-          date: _selectedDate,
+          date: date,
           dayPart: dayPart,
           userName: authProvider.userName,
           isSuperuser: authProvider.isSuperuser,
@@ -347,8 +387,22 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       ),
       body: Column(
         children: [
-          // Room info & date navigation
-          _buildHeader(context),
+          // Room info & date navigation (alleen voor slot-gebruikers en overbodig)
+          if (canBookHalfHour || widget.room.isObsolete) _buildHeader(context),
+
+          // Ruimteomschrijving voor dagdeel-gebruikers (geen datumnavigatie nodig)
+          if (!canBookHalfHour && !widget.room.isObsolete && widget.room.description != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              child: Text(
+                widget.room.description!,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
 
           // Warning als ruimte overbodig is
           if (widget.room.isObsolete)
@@ -401,7 +455,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               ),
             ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
                 onPressed: _previousDay,
@@ -476,65 +530,172 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 
-  /// Dagdeel weergave voor eenvoudige gebruikers - in kolommen
+  /// Dagdeel weergave voor standaard gebruikers - 2 weken tabel
   Widget _buildDayPartView(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final canGoBack = _dayPartWeekStart.isAfter(today);
+    final endDate = _dayPartWeekStart.add(const Duration(days: 13));
+    final rangeLabel =
+        '${DateFormat('d MMM', 'nl').format(_dayPartWeekStart)} – ${DateFormat('d MMM', 'nl').format(endDate)}';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        // Weeknavigatie
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: canGoBack
+                    ? () => setState(() => _dayPartWeekStart =
+                        _dayPartWeekStart.subtract(const Duration(days: 7)))
+                    : null,
+                tooltip: 'Vorige week',
+              ),
+              Expanded(
+                child: Text(
+                  rangeLabel,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => setState(() =>
+                    _dayPartWeekStart = _dayPartWeekStart.add(const Duration(days: 7))),
+                icon: const Icon(Icons.chevron_right, size: 18),
+                label: const Text('Volgende week', style: TextStyle(fontSize: 13)),
+                iconAlignment: IconAlignment.end,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(width: 2),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Koptekst-rij dagdelen
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(180),
+          child: Row(
+            children: [
+              const SizedBox(width: 68),
+              ...DayPart.values.map((dayPart) => Expanded(
+                    child: Text(
+                      dayPart.displayName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  )),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // 14 dagen
+        Expanded(
+          child: ListView.separated(
+            itemCount: 14,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final date = _dayPartWeekStart.add(Duration(days: index));
+              return _buildDayPartRow(
+                context,
+                date,
+                now,
+                authProvider,
+                reservationProvider,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayPartRow(
+    BuildContext context,
+    DateTime date,
+    DateTime now,
+    AuthProvider authProvider,
+    ReservationProvider reservationProvider,
+  ) {
+    final dayLabel = DateFormat('EEE', 'nl').format(date);
+    final dateLabel = DateFormat('d MMM', 'nl').format(date);
+    final allReservations = reservationProvider.getReservationsForRoom(widget.room.id, date);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              'Boek per dagdeel',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+          // Dag/datum kolom
+          SizedBox(
+            width: 68,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  dayLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(
+                  dateLabel,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
             ),
           ),
-          // Dagdelen naast elkaar in een Row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: DayPart.values.map((dayPart) {
-              final status = reservationProvider.getDayPartStatus(
-                widget.room.id,
-                _selectedDate,
-                dayPart,
-                authProvider.userName,
-              );
+          // Dagdeel cellen met ruimte ertussen
+          ...DayPart.values.map((dayPart) {
+            final status = reservationProvider.getDayPartStatus(
+              widget.room.id,
+              date,
+              dayPart,
+              authProvider.userName,
+            );
+            final dayPartStart = DateTime(
+              date.year,
+              date.month,
+              date.day,
+              8 + (dayPart.startSlotIndex ~/ 2),
+              (dayPart.startSlotIndex % 2) * 30,
+            );
+            final isPast = dayPartStart.isBefore(now);
+            final canBook = !isPast && status.isFullyAvailable;
+            final canCancel = !isPast &&
+                (status.bookedByUser > 0 ||
+                    (authProvider.isSuperuser && status.hasAnyBookings));
 
-              // Check of dagdeel in het verleden is
-              final dayPartStart = DateTime(
-                _selectedDate.year,
-                _selectedDate.month,
-                _selectedDate.day,
-                8 + (dayPart.startSlotIndex ~/ 2),
-                (dayPart.startSlotIndex % 2) * 30,
-              );
-              final isPast = dayPartStart.isBefore(now);
+            // Zoek naam van eerste andere boeker voor dit dagdeel
+            String? otherBookerName;
+            if (status.bookedByOthers > 0) {
+              for (int i = dayPart.startSlotIndex; i < dayPart.endSlotIndex; i++) {
+                final res = allReservations.where((r) =>
+                    r.slotIndex == i && r.bookerName != authProvider.userName).firstOrNull;
+                if (res != null) {
+                  otherBookerName = res.bookerName;
+                  break;
+                }
+              }
+            }
 
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: dayPart != DayPart.avond ? 8 : 0,
-                  ),
-                  child: _DayPartCardCompact(
-                    dayPart: dayPart,
-                    status: status,
-                    isPast: isPast,
-                    isSuperuser: authProvider.isSuperuser,
-                    currentUser: authProvider.userName,
-                    onBook: () => _bookDayPart(dayPart),
-                    onCancel: () => _cancelDayPart(dayPart),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+            return Expanded(
+              child: _DayPartCell(
+                status: status,
+                isPast: isPast,
+                canBook: canBook,
+                canCancel: canCancel,
+                otherBookerName: otherBookerName,
+                onBook: () => _bookDayPart(dayPart, date),
+                onCancel: () => _cancelDayPart(dayPart, date),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -636,341 +797,130 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   }
 }
 
-class _DayPartCard extends StatelessWidget {
-  final DayPart dayPart;
+/// Compacte cel voor de 2-weken dagdeel-tabel — button-stijl met dikke rand
+class _DayPartCell extends StatelessWidget {
   final DayPartStatus status;
   final bool isPast;
-  final bool isSuperuser;
-  final String currentUser;
+  final bool canBook;
+  final bool canCancel;
+  final String? otherBookerName;
   final VoidCallback onBook;
   final VoidCallback onCancel;
 
-  const _DayPartCard({
-    required this.dayPart,
+  const _DayPartCell({
     required this.status,
     required this.isPast,
-    required this.isSuperuser,
-    required this.currentUser,
+    required this.canBook,
+    required this.canCancel,
     required this.onBook,
     required this.onCancel,
+    this.otherBookerName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final canBook = !isPast && status.isFullyAvailable;
-    final canCancel = !isPast && (status.bookedByUser > 0 || (isSuperuser && status.hasAnyBookings));
-
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    String label;
+    IconData icon;
 
     if (isPast) {
-      statusColor = Colors.grey;
-      statusText = 'Verstreken';
-      statusIcon = Icons.history;
+      bgColor = Colors.grey[100]!;
+      borderColor = Colors.grey[300]!;
+      textColor = Colors.grey[400]!;
+      label = '–';
+      icon = Icons.remove;
     } else if (status.isFullyAvailable) {
-      statusColor = Colors.green;
-      statusText = 'Beschikbaar';
-      statusIcon = Icons.check_circle;
+      bgColor = Colors.green[50]!;
+      borderColor = Colors.green[600]!;
+      textColor = Colors.green[700]!;
+      label = 'Vrij';
+      icon = Icons.check_circle_outline;
     } else if (status.isFullyBookedByUser) {
-      statusColor = Colors.blue;
-      statusText = 'Door jou geboekt';
-      statusIcon = Icons.event_available;
+      bgColor = Colors.blue[50]!;
+      borderColor = Colors.blue[600]!;
+      textColor = Colors.blue[700]!;
+      label = 'Jij';
+      icon = Icons.event_available;
     } else if (status.bookedByOthers == status.totalSlots) {
-      statusColor = Colors.red;
-      statusText = 'Volledig bezet';
-      statusIcon = Icons.event_busy;
+      bgColor = Colors.red[50]!;
+      borderColor = Colors.red[600]!;
+      textColor = Colors.red[700]!;
+      label = 'Bezet';
+      icon = Icons.event_busy;
     } else {
-      statusColor = Colors.orange;
-      statusText = 'Gedeeltelijk bezet';
-      statusIcon = Icons.event_note;
+      bgColor = Colors.orange[50]!;
+      borderColor = Colors.orange[600]!;
+      textColor = Colors.orange[700]!;
+      label = 'Deels';
+      icon = Icons.event_note;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: statusColor.withAlpha((255 * 0.1).round()),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(statusIcon, color: statusColor),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        dayPart.displayName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isPast ? Colors.grey : null,
-                            ),
-                      ),
-                      Text(
-                        dayPart.timeRange,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: isPast ? Colors.grey : Colors.grey[600],
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor.withAlpha((255 * 0.1).round()),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                    ),
-                  ),
+    final tappable = !isPast && (canBook || canCancel);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: 2.5),
+        boxShadow: isPast
+            ? null
+            : [
+                BoxShadow(
+                  color: borderColor.withAlpha(100),
+                  blurRadius: 3,
+                  offset: const Offset(1, 2),
                 ),
               ],
-            ),
-            if (!isPast && status.isPartiallyBooked) ...[
-              const SizedBox(height: 12),
-              _buildOccupancyBar(context),
-            ],
-            if (!isPast && (canBook || canCancel)) ...[
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (canCancel)
-                    OutlinedButton.icon(
-                      onPressed: onCancel,
-                      icon: const Icon(Icons.cancel, size: 18),
-                      label: const Text('Annuleer'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                      ),
-                    ),
-                  if (canCancel && canBook) const SizedBox(width: 8),
-                  if (canBook)
-                    ElevatedButton.icon(
-                      onPressed: onBook,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Boek'),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
       ),
-    );
-  }
-
-  Widget _buildOccupancyBar(BuildContext context) {
-    final total = status.totalSlots.toDouble();
-    final userFraction = status.bookedByUser / total;
-    final othersFraction = status.bookedByOthers / total;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Bezetting: ${status.bookedByUser + status.bookedByOthers}/${status.totalSlots} slots',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 8,
-            child: Row(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: tappable ? (canBook ? onBook : onCancel) : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (userFraction > 0)
-                  Expanded(
-                    flex: (userFraction * 100).round(),
-                    child: Container(color: Colors.blue),
+                Icon(icon, size: 18, color: textColor),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
                   ),
-                if (othersFraction > 0)
-                  Expanded(
-                    flex: (othersFraction * 100).round(),
-                    child: Container(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+                if (otherBookerName != null) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    otherBookerName!,
+                    style: TextStyle(fontSize: 9, color: textColor),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                if (status.available > 0)
-                  Expanded(
-                    flex: ((status.available / total) * 100).round(),
-                    child: Container(color: Colors.grey[300]),
+                ],
+                if (status.isFullyBookedByUser && otherBookerName == null) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    'Jouw boeking',
+                    style: TextStyle(fontSize: 9, color: textColor),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
+                ],
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            if (status.bookedByUser > 0) ...[
-              Container(width: 8, height: 8, color: Colors.blue),
-              const SizedBox(width: 4),
-              Text('Jij (${status.bookedByUser})',
-                  style: const TextStyle(fontSize: 10)),
-              const SizedBox(width: 8),
-            ],
-            if (status.bookedByOthers > 0) ...[
-              Container(width: 8, height: 8, color: Colors.red),
-              const SizedBox(width: 4),
-              Text('Anderen (${status.bookedByOthers})',
-                  style: const TextStyle(fontSize: 10)),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Compacte dagdeel kaart voor kolom-layout
-class _DayPartCardCompact extends StatelessWidget {
-  final DayPart dayPart;
-  final DayPartStatus status;
-  final bool isPast;
-  final bool isSuperuser;
-  final String currentUser;
-  final VoidCallback onBook;
-  final VoidCallback onCancel;
-
-  const _DayPartCardCompact({
-    required this.dayPart,
-    required this.status,
-    required this.isPast,
-    required this.isSuperuser,
-    required this.currentUser,
-    required this.onBook,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final canBook = !isPast && status.isFullyAvailable;
-    final canCancel = !isPast && (status.bookedByUser > 0 || (isSuperuser && status.hasAnyBookings));
-
-    Color statusColor;
-    IconData statusIcon;
-
-    if (isPast) {
-      statusColor = Colors.grey;
-      statusIcon = Icons.history;
-    } else if (status.isFullyAvailable) {
-      statusColor = Colors.green;
-      statusIcon = Icons.check_circle;
-    } else if (status.isFullyBookedByUser) {
-      statusColor = Colors.blue;
-      statusIcon = Icons.event_available;
-    } else if (status.bookedByOthers == status.totalSlots) {
-      statusColor = Colors.red;
-      statusIcon = Icons.event_busy;
-    } else {
-      statusColor = Colors.orange;
-      statusIcon = Icons.event_note;
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            // Icon en titel
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: statusColor.withAlpha((255 * 0.15).round()),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(statusIcon, color: statusColor, size: 24),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              dayPart.displayName,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: isPast ? Colors.grey : null,
-              ),
-            ),
-            Text(
-              dayPart.timeRange,
-              style: TextStyle(
-                fontSize: 11,
-                color: isPast ? Colors.grey : Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Status badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor.withAlpha((255 * 0.15).round()),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                isPast
-                    ? 'Verstreken'
-                    : status.isFullyAvailable
-                        ? 'Vrij'
-                        : status.isFullyBookedByUser
-                            ? 'Jouw boeking'
-                            : '${status.available}/${status.totalSlots} vrij',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: statusColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Knoppen
-            if (!isPast && (canBook || canCancel))
-              Column(
-                children: [
-                  if (canBook)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: onBook,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                        child: const Text('Boek', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                  if (canCancel) ...[
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: onCancel,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                        child: const Text('Annuleer', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-          ],
         ),
       ),
     );

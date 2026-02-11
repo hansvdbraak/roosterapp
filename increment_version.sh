@@ -9,8 +9,8 @@ CURRENT_VERSION=$(grep "version = " "$VERSION_FILE" | sed "s/.*'\(.*\)'.*/\1/")
 # Split version into parts (e.g., 2.01.01 -> 2 01 01)
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
-# Increment patch version
-PATCH=$((PATCH + 1))
+# Increment patch version (10# prefix forces decimal to avoid octal interpretation)
+PATCH=$((10#$PATCH + 1))
 
 # Format new version (ensure two digits for patch)
 NEW_VERSION="$MAJOR.$MINOR.$(printf "%02d" $PATCH)"
