@@ -27,5 +27,17 @@ if [ $? -ne 0 ]; then
 fi
 echo ""
 
+# Step 4: Deploy changelog
+echo "Step 4: Deploying changelog..."
+VERSION=$(grep "version = " lib/config/version.dart | sed "s/.*'\(.*\)'.*/\1/")
+if [ -f "changelog.txt" ]; then
+    # Voeg build-versie header toe bovenaan en kopieer naar server
+    { echo "Build: v${VERSION} ($(date '+%Y-%m-%d'))"; echo ""; cat changelog.txt; } | ssh root@91.99.141.133 "cat > /opt/rooster_server/changelog.txt"
+    echo "Changelog gedeployed (v${VERSION})"
+else
+    echo "Waarschuwing: changelog.txt niet gevonden, overgeslagen"
+fi
+echo ""
+
 echo "=== Build & Deploy Complete ==="
-echo "Version: $(grep "version = " lib/config/version.dart | sed "s/.*'\(.*\)'.*/\1/")"
+echo "Version: ${VERSION}"

@@ -1,0 +1,64 @@
+ROOSTERAPP - VERSIELOGBOEK
+==========================
+
+v2.01.10 (2026-02-11)
+---------------------
+- Wekelijks herhalen optie toegevoegd bij boekingsdialogs (half-uur en dagdeel): maakt reserveringen voor 4 opeenvolgende weken
+- Datum navigatiepijlen (< >) gecentreerd in het reserveringsscherm voor gebruikers
+- Bug opgelost in versienummer-script (octaal interpretatie van 08/09)
+
+v2.01.09 (2026-02-11)
+---------------------
+- Ruimtenaam "de kuil centrale hal gemeentehuis" begint nu met hoofdletter
+- Ruimtebuttons hebben nu een vaste gelijke hoogte
+- Ruimten in het Ruimtes scherm worden alfabetisch getoond (links naar rechts, boven naar beneden)
+
+v2.01.08 (2026-02-11)
+---------------------
+- Bij het inlogscherm wordt de ingetypte gebruikersnaam overgenomen naar het registratiescherm
+- Servercode voor superuser-toekenning hersteld op productieserver (ontbrekende deployment)
+
+v2.01.07 (2026-02-11)
+---------------------
+- Dagdeelscherm: "Volgende week" knop toegevoegd (pijltje rechts) voor weeknavigatie
+- Dagdeelbuttons zijn nu duidelijke knoppen met vette rand en kleurstelling (bezet/vrij/eigen)
+- Naam van de boeker zichtbaar in bezette dagdeelcellen
+
+v2.01.06 (2026-02-11)
+---------------------
+- Knoppen voorzien van vette rand en 3D look (schaduw, verhoogd effect)
+- E-mailadressen hoeven niet meer uniek te zijn
+- Gebruikersnamen zijn niet hoofdlettergevoelig (uitzondering: Admin)
+- "Annuleren" tekst naast pijltje terug op het profielscherm
+- Bij registratie directe melding bij dubbele gebruikersnaam
+- Ruimtedetailscherm toont nu 2 weken met dag/datum links en drie dagdeelkolommen
+
+v2.01.05 (2026-02-11)
+---------------------
+- Superuser "Admin" is volledig onaantastbaar (rol noch verwijdering mogelijk)
+- Andere superusers kunnen teruggezet worden naar coordinator, gebruiker of standaard gebruiker
+- Maximaal 2 superusers toegestaan in de applicatie
+- Rolnaam "Eenvoudige gebruiker" hernoemd naar "Standaard gebruiker" in de gehele app
+
+v2.01.04 (2026-02-11)
+---------------------
+- Superuser kan profielen van andere gebruikers bewerken vanuit het beheerdersscherm
+- Superuser-rol kan nu worden toegekend via het beheerdersscherm
+- Nieuw scherm: "Profiel bewerken" voor beheerders (admin_edit_user_screen)
+- Superuser-toekenning vraagt bevestiging met waarschuwingstekst
+
+v2.01.03 (2026-02-11)
+---------------------
+- Ruimteafbeeldingen toegevoegd met aangepaste stijl en overlay
+- Versieweergave toegevoegd op het welkomstscherm
+- Automatisch versienummer-increment bij elke build
+
+v2.01.02 en eerder
+------------------
+- Initiële productie-deployments
+- Basis reserveringsfunctionaliteit (half-uur slots en dagdelen)
+- Gebruikersbeheer (registratie, login, profielbeheer)
+- Beheerdersscherm voor superusers
+- Coördinatordashboard
+- Ruimtebeheer (toevoegen, bewerken, verwijderen)
+- Wachtwoord vergeten / reset functionaliteit
