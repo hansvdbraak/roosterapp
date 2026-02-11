@@ -193,10 +193,6 @@ class AuthProvider extends ChangeNotifier {
       throw Exception('Geen rechten om rollen te wijzigen');
     }
 
-    if (newRole == UserRole.superuser) {
-      throw Exception('Superuser rol kan niet worden toegekend');
-    }
-
     if (_serverUser?.id == userId) {
       throw Exception('Je kunt je eigen rol niet wijzigen');
     }
@@ -254,6 +250,47 @@ class AuthProvider extends ChangeNotifier {
       _currentSession = UserSession(
         userName: updatedUser.name,
         role: _stringToUserRole(updatedUser.role),
+      );
+
+      await _loadAllUsers();
+      notifyListeners();
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Update profiel van een andere gebruiker door admin (alleen voor superuser)
+  Future<void> adminUpdateUserProfile({
+    required int userId,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    required String postalCode,
+    required String city,
+    String? comment,
+    String? newPassword,
+  }) async {
+    if (_currentSession == null || !_currentSession!.isSuperuser) {
+      throw Exception('Geen rechten om profielen van anderen te wijzigen');
+    }
+
+    if (newPassword != null && newPassword.isNotEmpty) {
+      final validation = PasswordValidator.validate(newPassword);
+      if (!validation.isValid) {
+        throw Exception('Wachtwoord voldoet niet aan de eisen:\n${validation.errors.join('\n')}');
+      }
+    }
+
+    try {
+      await serverpodClient.auth.updateProfile(
+        userId: userId,
+        email: email,
+        phoneNumber: phoneNumber,
+        address: address,
+        postalCode: postalCode,
+        city: city,
+        comment: comment,
+        newPassword: newPassword,
       );
 
       await _loadAllUsers();
@@ -323,6 +360,52 @@ class AuthProvider extends ChangeNotifier {
     await _loadAllUsers();
   }
 
+  /// Verifieer telefoonnummer voor wachtwoord reset.
+  /// Gooit 'PHONE_MISMATCH' als telefoonnummer niet overeenkomt.
+  /// Geeft userId terug als verificatie slaagt.
+  Future<int> verifyPhoneForPasswordReset(String username, String phoneNumber) async {
+    if (_allUsers.isEmpty) {
+      await _loadAllUsers();
+    }
+    final user = getUserByName(username);
+    if (user == null) {
+      throw Exception('Gebruiker niet gevonden');
+    }
+    final normalizedInput = phoneNumber.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    final normalizedStored = (user.phoneNumber ?? '').replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    if (normalizedInput.isEmpty || normalizedInput != normalizedStored) {
+      throw Exception('PHONE_MISMATCH');
+    }
+    return user.id;
+  }
+
+  /// Reset wachtwoord op basis van userId (na telefoonnummer verificatie).
+  Future<void> resetPasswordById({
+    required int userId,
+    required String newPassword,
+  }) async {
+    final validation = PasswordValidator.validate(newPassword);
+    if (!validation.isValid) {
+      throw Exception('Wachtwoord voldoet niet aan de eisen:\n${validation.errors.join('\n')}');
+    }
+    final user = getUserById(userId);
+    if (user == null) throw Exception('Gebruiker niet gevonden');
+    try {
+      await serverpodClient.auth.updateProfile(
+        userId: userId,
+        email: user.email,
+        phoneNumber: user.phoneNumber ?? '',
+        address: user.address ?? '',
+        postalCode: user.postalCode ?? '',
+        city: user.city ?? '',
+        comment: user.comment,
+        newPassword: newPassword,
+      );
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   /// Update commentaar voor een gebruiker (alleen voor superuser)
   Future<void> updateUserComment({
     required int userId,
@@ -339,6 +422,15 @@ class AuthProvider extends ChangeNotifier {
       );
       await _loadAllUsers();
       notifyListeners();
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Haal versielogboek op
+  Future<String> getChangelog() async {
+    try {
+      return await serverpodClient.auth.getChangelog();
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

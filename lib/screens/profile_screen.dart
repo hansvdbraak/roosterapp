@@ -6,6 +6,7 @@ import '../models/user.dart';
 import '../utils/password_validator.dart';
 import '../widgets/app_header.dart';
 import 'welcome_screen.dart';
+import 'changelog_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -121,6 +122,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mijn profiel'),
+        leading: InkWell(
+          onTap: () => Navigator.of(context).pop(),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: 8),
+              Icon(Icons.arrow_back),
+              SizedBox(width: 4),
+              Text('Annuleren', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        leadingWidth: 120,
         actions: const [
           AppHeaderActions(showDate: true),
         ],
@@ -450,6 +464,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: const Text('Annuleren'),
                 ),
+
+                // Versielogboek knop (alleen voor Admin)
+                if (authProvider.userName == 'Admin') ...[
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ChangelogScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.history),
+                    label: const Text('Versielogboek'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
