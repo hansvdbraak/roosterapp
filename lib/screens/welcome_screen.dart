@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -123,13 +124,30 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Geblurrde achtergrond
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Image.network(
+              '/assets/images/trefpunt_duurzaam.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: Colors.blueGrey[100]),
+            ),
+          ),
+          // Semi-transparante overlay voor leesbaarheid
+          Container(color: Colors.white.withValues(alpha: 0.65)),
+          // Login inhoud
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 512),
+                  child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                 // Logo en titel
                 Icon(
                   Icons.calendar_month,
@@ -148,6 +166,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   'Ruimte Reserveringssysteem',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey[600],
+                        fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 4),
@@ -155,6 +174,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   'V ${AppVersion.version}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey[500],
+                        fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 48),
@@ -166,7 +186,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     labelText: 'Gebruikersnaam',
                     hintText: 'Je naam',
                     prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
                   ),
                   textInputAction: TextInputAction.next,
                 ),
@@ -179,7 +198,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     labelText: 'Wachtwoord',
                     hintText: 'Je wachtwoord',
                     prefixIcon: const Icon(Icons.lock),
-                    border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -202,27 +220,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       );
                     },
-                    child: const Text('Wachtwoord vergeten?'),
+                    child: const Text('Wachtwoord vergeten?', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 16),
 
                 // Login knop
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Inloggen'),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _login,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                   ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Inloggen', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 24),
 
@@ -234,7 +249,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'of',
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
                       ),
                     ),
                     Expanded(child: Divider(color: Colors.grey[300])),
@@ -243,30 +258,30 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(height: 24),
 
                 // Registreren knop
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      final name = _usernameController.text.trim();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RegisterScreen(
-                            initialName: name.isNotEmpty ? name : null,
-                          ),
+                ElevatedButton(
+                  onPressed: () {
+                    final name = _usernameController.text.trim();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RegisterScreen(
+                          initialName: name.isNotEmpty ? name : null,
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('Nieuw account aanmaken'),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                   ),
+                  child: const Text('Nieuw account aanmaken', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
 
-              ],
+                  ],
+                ),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../utils/password_validator.dart';
+import '../utils/csv_export_utils.dart';
 import '../widgets/app_header.dart';
 import 'welcome_screen.dart';
 import 'changelog_screen.dart';
@@ -28,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isExporting = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _changePassword = false;
@@ -115,6 +117,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _exportCSV() async {
+    final options = getQuarterOptions();
+
+    final selected = await showDialog<(int, int)>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Selecteer kwartaal'),
+        children: options
+            .map((opt) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(ctx).pop((opt.$2, opt.$3)),
+                  child: Text(opt.$1),
+                ))
+            .toList(),
+      ),
+    );
+
+    if (selected == null) return;
+
+    setState(() => _isExporting = true);
+    try {
+      await exportReservationsCSV(year: selected.$1, quarter: selected.$2);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export mislukt: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -146,10 +183,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 512),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Rol info (niet bewerkbaar)
                 Card(
@@ -489,11 +530,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ],
+
+                // CSV export knop (voor coordinator en superuser)
+                if (authProvider.isCoordinator) ...[
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isExporting ? null : _exportCSV,
+                      icon: _isExporting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download),
+                      label: Text(_isExporting
+                          ? 'Exporteren...'
+                          : 'Exporteer reserveringen (CSV)'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
+    ),
+  ),
     );
   }
 }
