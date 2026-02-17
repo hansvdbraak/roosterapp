@@ -1,6 +1,23 @@
 ROOSTERAPP - VERSIELOGBOEK
 ==========================
 
+v2.01.13 (2026-02-11)
+---------------------
+- Tijdzone-bug opgelost: boekingen landden door UTC/CET verschil op de verkeerde dag
+- Weeknavigatie dagdeelscherm: "Vorige week" knop identiek aan "Volgende week" knop, beide gecentreerd om de datumaanduiding
+
+v2.01.12 (2026-02-11)
+---------------------
+- Gebruikersbeheer: gebruikers gesorteerd op rol (superuser → coordinator → gebruiker → standaard) en daarbinnen alfabetisch
+- Boekingsdialogs: knoppen even breed als de langste knop (Wekelijks herhalen), verticaal gestapeld
+- Versielogboek automatisch gedeployed bij elke build
+- Unieke e-mail index verwijderd uit database (e-mailadressen mogen gedeeld worden)
+
+v2.01.11 (2026-02-11)
+---------------------
+- Versielogboek toegevoegd: Admin ziet knop in profiel om versiehistorie te raadplegen
+- Changelog opgeslagen op server, automatisch bijgewerkt bij elke deploy
+
 v2.01.10 (2026-02-11)
 ---------------------
 - Wekelijks herhalen optie toegevoegd bij boekingsdialogs (half-uur en dagdeel): maakt reserveringen voor 4 opeenvolgende weken

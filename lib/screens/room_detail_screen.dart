@@ -31,15 +31,16 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = widget.initialDate;
+    final initDate = widget.initialDate;
+    _selectedDate = DateTime.utc(initDate.year, initDate.month, initDate.day);
     final now = DateTime.now();
-    _dayPartWeekStart = DateTime(now.year, now.month, now.day);
+    _dayPartWeekStart = DateTime.utc(now.year, now.month, now.day);
   }
 
   void _previousDay() {
     final newDate = _selectedDate.subtract(const Duration(days: 1));
     final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
+    final todayDate = DateTime.utc(today.year, today.month, today.day);
 
     if (!newDate.isBefore(todayDate)) {
       setState(() => _selectedDate = newDate);
@@ -61,18 +62,28 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
         content: Text(
           'Wil je ${widget.room.name} boeken op ${slot.getDisplayTime()}?',
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Annuleren'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, 'weekly'),
-            child: const Text('Wekelijks herhalen'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, 'once'),
-            child: const Text('Boeken'),
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, 'once'),
+                  child: const Text('Boeken'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context, 'weekly'),
+                  child: const Text('Wekelijks herhalen'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Annuleren'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -81,7 +92,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     if (choice == null || !mounted) return;
 
     final dates = choice == 'weekly'
-        ? List.generate(4, (i) => _selectedDate.add(Duration(days: 7 * i)))
+        ? List.generate(4, (i) => DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day + 7 * i))
         : [_selectedDate];
 
     int success = 0;
@@ -186,18 +197,28 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
         content: Text(
           'Wil je ${widget.room.name} boeken voor de ${dayPart.displayName.toLowerCase()} (${dayPart.timeRange}) op $dateLabel?',
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Annuleren'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, 'weekly'),
-            child: const Text('Wekelijks herhalen'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, 'once'),
-            child: const Text('Boeken'),
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, 'once'),
+                  child: const Text('Boeken'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context, 'weekly'),
+                  child: const Text('Wekelijks herhalen'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Annuleren'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -206,7 +227,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     if (choice == null || !mounted) return;
 
     final dates = choice == 'weekly'
-        ? List.generate(4, (i) => date.add(Duration(days: 7 * i)))
+        ? List.generate(4, (i) => DateTime.utc(date.year, date.month, date.day + 7 * i))
         : [date];
 
     int success = 0;
@@ -470,7 +491,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                   );
                   if (picked != null) {
-                    setState(() => _selectedDate = picked);
+                    setState(() => _selectedDate = DateTime.utc(picked.year, picked.month, picked.day));
                   }
                 },
                 child: Row(
@@ -535,7 +556,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final authProvider = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = DateTime.utc(now.year, now.month, now.day);
     final canGoBack = _dayPartWeekStart.isAfter(today);
     final endDate = _dayPartWeekStart.add(const Duration(days: 13));
     final rangeLabel =
@@ -548,25 +569,30 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
+              OutlinedButton.icon(
                 onPressed: canGoBack
                     ? () => setState(() => _dayPartWeekStart =
-                        _dayPartWeekStart.subtract(const Duration(days: 7)))
+                        DateTime.utc(_dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day - 7))
                     : null,
-                tooltip: 'Vorige week',
+                icon: const Icon(Icons.chevron_left, size: 18),
+                label: const Text('Vorige week', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(width: 2),
+                ),
               ),
-              Expanded(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   rangeLabel,
-                  textAlign: TextAlign.center,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: () => setState(() =>
-                    _dayPartWeekStart = _dayPartWeekStart.add(const Duration(days: 7))),
+                    _dayPartWeekStart = DateTime.utc(_dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day + 7)),
                 icon: const Icon(Icons.chevron_right, size: 18),
                 label: const Text('Volgende week', style: TextStyle(fontSize: 13)),
                 iconAlignment: IconAlignment.end,

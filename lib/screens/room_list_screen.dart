@@ -23,7 +23,7 @@ class RoomListScreen extends StatefulWidget {
 }
 
 class _RoomListScreenState extends State<RoomListScreen> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = () { final n = DateTime.now(); return DateTime.utc(n.year, n.month, n.day); }();
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -33,7 +33,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() => _selectedDate = DateTime.utc(picked.year, picked.month, picked.day));
     }
   }
 
@@ -173,7 +173,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
                     children: [
                       Icon(Icons.people_outline),
                       SizedBox(width: 8),
-                      Text('Eenvoudige gebruikers'),
+                      Text('Standaard gebruikers'),
                     ],
                   ),
                 ),
@@ -212,7 +212,8 @@ class _RoomListScreenState extends State<RoomListScreen> {
       body: Builder(
         builder: (context) {
           // Filter alleen actieve ruimtes (niet overbodig)
-          final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList();
+          final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
 
           if (activeRooms.isEmpty) {
             return const Center(
@@ -328,6 +329,7 @@ class _RoomCard extends StatelessWidget {
 
     return SizedBox(
       width: constrainedWidth,
+      height: 150,
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -369,7 +371,7 @@ class _RoomCard extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
                 Row(
                   children: [

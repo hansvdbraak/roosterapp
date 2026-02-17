@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/room_provider.dart';
 import '../providers/reservation_provider.dart';
 import '../providers/auth_provider.dart';
@@ -22,6 +23,11 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
   DateTime? _selectedWeekStart;
   int? _selectedQuarter;
 
+  Set<String> _verwerktWeeks = {};
+  Set<String> _verwerktQuarters = {};
+  static const String _verwerktWeeksKey = 'coordinator_verwerkt_weeks';
+  static const String _verwerktQuartersKey = 'coordinator_verwerkt_quarters';
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +35,50 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     if (DateTime.now().month == 1) {
       _selectedYear = DateTime.now().year - 1;
     }
+    _loadVerwerktState();
+  }
+
+  Future<void> _loadVerwerktState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final weeks = prefs.getStringList(_verwerktWeeksKey) ?? [];
+    final quarters = prefs.getStringList(_verwerktQuartersKey) ?? [];
+    if (mounted) {
+      setState(() {
+        _verwerktWeeks = weeks.toSet();
+        _verwerktQuarters = quarters.toSet();
+      });
+    }
+  }
+
+  String _weekKey(DateTime weekStart) =>
+      '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+
+  String _quarterKey(int year, int quarter) => '$year-Q$quarter';
+
+  Future<void> _toggleVerwerktWeek(DateTime weekStart) async {
+    final key = _weekKey(weekStart);
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      if (_verwerktWeeks.contains(key)) {
+        _verwerktWeeks.remove(key);
+      } else {
+        _verwerktWeeks.add(key);
+      }
+    });
+    await prefs.setStringList(_verwerktWeeksKey, _verwerktWeeks.toList());
+  }
+
+  Future<void> _toggleVerwerktQuarter(int year, int quarter) async {
+    final key = _quarterKey(year, quarter);
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      if (_verwerktQuarters.contains(key)) {
+        _verwerktQuarters.remove(key);
+      } else {
+        _verwerktQuarters.add(key);
+      }
+    });
+    await prefs.setStringList(_verwerktQuartersKey, _verwerktQuarters.toList());
   }
 
   void _selectWeekly() {
@@ -115,7 +165,14 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
         title: Text(_getAppBarTitle()),
         leading: _currentView != DashboardView.choice
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: const Icon(Icons.arrow_back, color: Colors.orange, size: 20),
+                ),
                 onPressed: _goBack,
               )
             : null,
@@ -197,7 +254,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Bekijk de uren per eenvoudige gebruiker',
+            'Bekijk de uren per standaard gebruiker',
             style: TextStyle(color: Colors.grey[600]),
           ),
           const SizedBox(height: 48),
@@ -331,6 +388,8 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
               final isNextWeek = currentWeekStart != null &&
                   weekStart.difference(currentWeekStart).inDays == 7;
 
+              final isVerwerkt = _verwerktWeeks.contains(_weekKey(weekStart));
+
               return Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(right: colIndex < columns - 1 ? 4 : 0),
@@ -341,6 +400,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                     isCurrentWeek: isCurrentWeek,
                     isNextWeek: isNextWeek,
                     isFuture: isFuture,
+                    isVerwerkt: isVerwerkt,
                     onTap: isFuture ? null : () => _selectWeek(weekStart),
                   ),
                 ),
@@ -429,7 +489,29 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                       fontSize: 12,
                     ),
                   )
-                : const Icon(Icons.chevron_right),
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_verwerktQuarters.contains(_quarterKey(_selectedYear, quarter)))
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green[700],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Verwerkt',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
             onTap: isFuture ? null : () => _selectQuarter(quarter),
           ),
         );
@@ -459,10 +541,14 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
       7,
     );
 
+    final isVerwerkt = _verwerktWeeks.contains(_weekKey(weekStart));
+
     return _buildUserHoursList(
       title: 'Week $weekNumber',
       subtitle: '${DateFormat('d MMMM', 'nl').format(weekStart)} - ${DateFormat('d MMMM yyyy', 'nl').format(weekEnd)}',
       users: eenvoudigUsers,
+      isVerwerkt: isVerwerkt,
+      onToggleVerwerkt: () => _toggleVerwerktWeek(weekStart),
     );
   }
 
@@ -490,10 +576,14 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
       daysInQuarter,
     );
 
+    final isVerwerkt = _verwerktQuarters.contains(_quarterKey(_selectedYear, _selectedQuarter!));
+
     return _buildUserHoursList(
       title: _getQuarterName(_selectedQuarter!),
       subtitle: '${DateFormat('d MMMM', 'nl').format(quarterStart)} - ${DateFormat('d MMMM yyyy', 'nl').format(quarterEnd)}',
       users: eenvoudigUsers,
+      isVerwerkt: isVerwerkt,
+      onToggleVerwerkt: () => _toggleVerwerktQuarter(_selectedYear, _selectedQuarter!),
     );
   }
 
@@ -573,6 +663,8 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     required String title,
     required String subtitle,
     required List<_UserHours> users,
+    bool isVerwerkt = false,
+    VoidCallback? onToggleVerwerkt,
   }) {
     final totalCol1 = users.fold<int>(0, (sum, u) => sum + u.slotsCol1) * 0.5;
     final totalCol2 = users.fold<int>(0, (sum, u) => sum + u.slotsCol2) * 0.5;
@@ -612,7 +704,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Alleen eenvoudige gebruikers (dagdeel-boekingen)',
+                          'Alleen standaard gebruikers (dagdeel-boekingen)',
                           style: TextStyle(
                             color: Colors.blue[700],
                             fontSize: 13,
@@ -660,7 +752,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                     Icon(Icons.person_off, size: 48, color: Colors.grey[400]),
                     const SizedBox(height: 8),
                     Text(
-                      'Geen eenvoudige gebruikers hebben geboekt',
+                      'Geen standaard gebruikers hebben geboekt',
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                   ],
@@ -690,7 +782,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                       ),
                       const Spacer(),
                       Text(
-                        '${users.length} eenvoudige gebruikers',
+                        '${users.length} standaard gebruikers',
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ],
@@ -709,6 +801,37 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
               ),
             ),
           ),
+
+        // Verwerkt knop
+        if (onToggleVerwerkt != null) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: isVerwerkt
+                ? OutlinedButton.icon(
+                    onPressed: onToggleVerwerkt,
+                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    label: const Text(
+                      'Verwerkt – tik om ongedaan te maken',
+                      style: TextStyle(color: Colors.green),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Colors.green, width: 2),
+                    ),
+                  )
+                : ElevatedButton.icon(
+                    onPressed: onToggleVerwerkt,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Markeer als verwerkt'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+          ),
+        ],
       ],
     );
   }
@@ -1014,6 +1137,7 @@ class _WeekCardCompact extends StatelessWidget {
   final bool isCurrentWeek;
   final bool isNextWeek;
   final bool isFuture;
+  final bool isVerwerkt;
   final VoidCallback? onTap;
 
   const _WeekCardCompact({
@@ -1023,6 +1147,7 @@ class _WeekCardCompact extends StatelessWidget {
     required this.isCurrentWeek,
     required this.isNextWeek,
     required this.isFuture,
+    this.isVerwerkt = false,
     this.onTap,
   });
 
@@ -1044,6 +1169,10 @@ class _WeekCardCompact extends StatelessWidget {
       bgColor = Colors.grey[100]!;
       textColor = Colors.grey;
       borderColor = Colors.grey[300]!;
+    } else if (isVerwerkt) {
+      bgColor = Colors.green[50]!;
+      textColor = Colors.green[800]!;
+      borderColor = Colors.green[400]!;
     } else {
       bgColor = Colors.white;
       textColor = Colors.black87;
@@ -1062,6 +1191,8 @@ class _WeekCardCompact extends StatelessWidget {
         ),
         child: Column(
           children: [
+            if (isVerwerkt)
+              Icon(Icons.check_circle, size: 10, color: Colors.green[700]),
             Text(
               '$weekNumber',
               style: TextStyle(

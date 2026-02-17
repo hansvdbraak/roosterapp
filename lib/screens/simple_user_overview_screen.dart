@@ -16,7 +16,7 @@ class SimpleUserOverviewScreen extends StatefulWidget {
 }
 
 class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
-  // Bijhouden welke gebruikers bekeken zijn dit kwartaal
+  // Bijhouden welke gebruikers verwerkt zijn dit kwartaal
   Set<int> _viewedUserIds = {};
   int _trackedQuarter = 0;
   int _trackedYear = 0;
@@ -84,7 +84,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
       _userReservations = null;
     });
 
-    // Markeer als bekeken en sla op
+    // Markeer als verwerkt en sla op
     _viewedUserIds.add(user.id);
     await _saveViewedUsers();
 
@@ -150,7 +150,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
   Widget build(BuildContext context) {
     if (!_isInitialized) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Eenvoudige gebruikers')),
+        appBar: AppBar(title: const Text('Standaard gebruikers')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -158,11 +158,18 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_selectedUser == null
-            ? 'Eenvoudige gebruikers'
+            ? 'Standaard gebruikers'
             : _selectedUser!.name),
         leading: _selectedUser != null
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: const Icon(Icons.arrow_back, color: Colors.orange, size: 20),
+                ),
                 onPressed: _goBack,
               )
             : null,
@@ -184,7 +191,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
         .where((u) => u.role == UserRole.gebruikerEenvoud)
         .toList();
 
-    // Sorteer: niet-bekeken eerst (alfabetisch), dan bekeken (alfabetisch)
+    // Sorteer: niet-verwerkt eerst (alfabetisch), dan verwerkt (alfabetisch)
     simpleUsers.sort((a, b) {
       final aViewed = _viewedUserIds.contains(a.id);
       final bViewed = _viewedUserIds.contains(b.id);
@@ -204,7 +211,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
             Icon(Icons.person_off, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Geen eenvoudige gebruikers',
+              'Geen standaard gebruikers',
               style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
           ],
@@ -241,7 +248,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      '$viewedCount / $totalCount bekeken',
+                      '$viewedCount / $totalCount verwerkt',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -327,7 +334,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
-                            'Bekeken',
+                            'Verwerkt',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,

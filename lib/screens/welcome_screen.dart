@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../config/version.dart';
 import 'room_list_screen.dart';
@@ -18,6 +19,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastUsername();
+  }
+
+  Future<void> _loadLastUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastUsername = prefs.getString('last_username');
+    if (lastUsername != null && lastUsername.isNotEmpty && mounted) {
+      setState(() => _usernameController.text = lastUsername);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,6 +58,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             username: _usernameController.text,
             password: _passwordController.text,
           );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_username', _usernameController.text.trim());
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const RoomListScreen()),
@@ -230,8 +247,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () {
+                      final name = _usernameController.text.trim();
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => RegisterScreen(
+                            initialName: name.isNotEmpty ? name : null,
+                          ),
+                        ),
                       );
                     },
                     style: OutlinedButton.styleFrom(

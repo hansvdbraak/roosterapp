@@ -133,11 +133,11 @@ class AuthEndpoint extends Endpoint {
 ```
 
 ### roosterapp_server/lib/src/endpoints/room_endpoint.dart
-```dart
+```dartdede
 class RoomEndpoint extends Endpoint {
   // GET /room/list
   Future<List<Room>> getRooms()
-
+cl
   // POST /room/create (admin only)
   Future<Room> createRoom(String name, String? description)
 
@@ -150,7 +150,8 @@ class RoomEndpoint extends Endpoint {
 ```
 
 ### roosterapp_server/lib/src/endpoints/reservation_endpoint.dart
-```dart
+```dartcl
+
 class ReservationEndpoint extends Endpoint {
   // GET /reservation/list?roomId={id}&date={date}
   Future<List<Reservation>> getReservations(int roomId, DateTime date)

@@ -175,7 +175,7 @@ class AppHeaderActions extends StatelessWidget {
                   children: [
                     Icon(Icons.people_outline),
                     SizedBox(width: 8),
-                    Text('Eenvoudige gebruikers'),
+                    Text('Standaard gebruikers'),
                   ],
                 ),
               ),

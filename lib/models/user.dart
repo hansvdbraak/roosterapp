@@ -9,7 +9,7 @@ extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
       case UserRole.gebruikerEenvoud:
-        return 'Eenvoudige gebruiker';
+        return 'Standaard gebruiker';
       case UserRole.gebruiker:
         return 'Gebruiker';
       case UserRole.coordinator:

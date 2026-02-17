@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../utils/password_validator.dart';
 import '../widgets/app_header.dart';
-import 'welcome_screen.dart';
-import 'changelog_screen.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+class AdminEditUserScreen extends StatefulWidget {
+  final User user;
+
+  const AdminEditUserScreen({super.key, required this.user});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<AdminEditUserScreen> createState() => _AdminEditUserScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -36,27 +34,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentUserData();
+    _loadUserData();
     _newPasswordController.addListener(_onPasswordChanged);
   }
 
-  void _loadCurrentUserData() {
-    final authProvider = context.read<AuthProvider>();
-    final user = authProvider.currentUser;
-    if (user != null) {
-      _nameController.text = user.name;
-      _emailController.text = user.email;
-      _phoneController.text = user.phoneNumber ?? '';
-      _addressController.text = user.address ?? '';
-      _postalCodeController.text = user.postalCode ?? '';
-      _cityController.text = user.city ?? '';
-      _commentController.text = user.comment ?? '';
-    }
+  void _loadUserData() {
+    _emailController.text = widget.user.email;
+    _phoneController.text = widget.user.phoneNumber ?? '';
+    _addressController.text = widget.user.address ?? '';
+    _postalCodeController.text = widget.user.postalCode ?? '';
+    _cityController.text = widget.user.city ?? '';
+    _commentController.text = widget.user.comment ?? '';
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
@@ -80,7 +72,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await context.read<AuthProvider>().updateProfile(
+      await context.read<AuthProvider>().adminUpdateUserProfile(
+            userId: widget.user.id,
             email: _emailController.text,
             phoneNumber: _phoneController.text,
             address: _addressController.text,
@@ -117,31 +110,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mijn profiel'),
-        leading: InkWell(
-          onTap: () => Navigator.of(context).pop(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(6),
-                child: const Icon(Icons.arrow_back, color: Colors.orange, size: 20),
-              ),
-              const SizedBox(width: 4),
-              const Text('Annuleren', style: TextStyle(fontSize: 13)),
-            ],
-          ),
-        ),
-        leadingWidth: 120,
+        title: Text('Profiel bewerken: ${widget.user.name}'),
         actions: const [
           AppHeaderActions(showDate: true),
         ],
@@ -156,28 +127,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // Rol info (niet bewerkbaar)
                 Card(
-                  color: Colors.blue[50],
+                  color: Colors.purple[50],
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Icon(Icons.badge, color: Colors.blue[700]),
+                        Icon(Icons.security, color: Colors.purple[700]),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Rol: ${authProvider.userRole.displayName}',
+                              'Rol: ${widget.user.role.displayName}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
+                                color: Colors.purple[700],
                               ),
                             ),
                             Text(
-                              'Je rol kan alleen door een superuser worden gewijzigd',
+                              'Rolwijziging gaat via het popup menu in gebruikersbeheer',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.blue[600],
+                                color: Colors.purple[600],
                               ),
                             ),
                           ],
@@ -190,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // Naam (niet bewerkbaar)
                 TextFormField(
-                  controller: _nameController,
+                  initialValue: widget.user.name,
                   decoration: InputDecoration(
                     labelText: 'Gebruikersnaam',
                     prefixIcon: const Icon(Icons.person),
@@ -217,7 +188,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Voer je e-mailadres in';
+                      return 'Voer een e-mailadres in';
                     }
                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                       return 'Voer een geldig e-mailadres in';
@@ -240,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Voer je telefoonnummer in';
+                      return 'Voer een telefoonnummer in';
                     }
                     return null;
                   },
@@ -268,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Voer je adres in';
+                      return 'Voer een adres in';
                     }
                     return null;
                   },
@@ -416,7 +387,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             controller: _confirmPasswordController,
                             decoration: InputDecoration(
                               labelText: 'Bevestig nieuw wachtwoord',
-                              hintText: 'Herhaal je nieuwe wachtwoord',
+                              hintText: 'Herhaal het nieuwe wachtwoord',
                               prefixIcon: const Icon(Icons.lock_outline),
                               border: const OutlineInputBorder(),
                               suffixIcon: IconButton(
@@ -432,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             validator: (value) {
                               if (!_changePassword) return null;
                               if (value == null || value.isEmpty) {
-                                return 'Bevestig je nieuwe wachtwoord';
+                                return 'Bevestig het nieuwe wachtwoord';
                               }
                               if (value != _newPasswordController.text) {
                                 return 'Wachtwoorden komen niet overeen';
@@ -471,27 +442,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: const Text('Annuleren'),
                 ),
-
-                // Versielogboek knop (alleen voor Admin)
-                if (authProvider.userName == 'Admin') ...[
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ChangelogScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.history),
-                    label: const Text('Versielogboek'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

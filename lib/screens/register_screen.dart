@@ -29,19 +29,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   PasswordValidationResult? _passwordValidation;
+  String? _usernameError;
+  final _nameFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _passwordController.addListener(_onPasswordChanged);
+    _nameFocusNode.addListener(() {
+      if (!_nameFocusNode.hasFocus && _nameController.text.trim().isNotEmpty) {
+        _checkUsername();
+      }
+    });
     // Vul initiële naam in als meegegeven
     if (widget.initialName != null) {
       _nameController.text = widget.initialName!;
     }
   }
 
+  Future<void> _checkUsername() async {
+    final exists = await context.read<AuthProvider>().isUsernameRegistered(_nameController.text.trim());
+    if (mounted) {
+      setState(() {
+        _usernameError = exists ? 'Gebruiker bestaat al, kies een andere naam' : null;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _nameFocusNode.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -66,7 +83,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await context.read<AuthProvider>().register(
+      final authProvider = context.read<AuthProvider>();
+
+      // Check of gebruikersnaam al bestaat
+      final exists = await authProvider.isUsernameRegistered(_nameController.text.trim());
+      if (exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gebruiker bestaat al, kies een andere naam'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      await authProvider.register(
             name: _nameController.text,
             email: _emailController.text,
             phoneNumber: _phoneController.text,
@@ -114,17 +147,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Naam
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
+                  focusNode: _nameFocusNode,
+                  decoration: InputDecoration(
                     labelText: 'Naam',
                     hintText: 'Je volledige naam',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.person),
+                    border: const OutlineInputBorder(),
+                    errorText: _usernameError,
                   ),
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Voer je naam in';
                     }
+                    if (_usernameError != null) return _usernameError;
                     return null;
                   },
                 ),

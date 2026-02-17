@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../widgets/app_header.dart';
+import 'admin_edit_user_screen.dart';
 
 class UserManagementScreen extends StatelessWidget {
   const UserManagementScreen({super.key});
@@ -10,7 +11,18 @@ class UserManagementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final users = authProvider.allUsers;
+    final users = authProvider.allUsers.toList()
+      ..sort((a, b) {
+        const roleOrder = {
+          UserRole.superuser: 0,
+          UserRole.coordinator: 1,
+          UserRole.gebruiker: 2,
+          UserRole.gebruikerEenvoud: 3,
+        };
+        final roleCmp = (roleOrder[a.role] ?? 9).compareTo(roleOrder[b.role] ?? 9);
+        if (roleCmp != 0) return roleCmp;
+        return a.name.compareTo(b.name);
+      });
     final currentSession = authProvider.currentSession;
     final isSuperuser = currentSession?.isSuperuser ?? false;
 
@@ -79,7 +91,7 @@ class _UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roleColor = _getRoleColor(user.role);
-    final canEdit = isSuperuser && !isCurrentUser && user.role != UserRole.superuser;
+    final canEdit = isSuperuser && !isCurrentUser && user.name != 'Admin';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -207,74 +219,134 @@ class _UserCard extends StatelessWidget {
   List<PopupMenuEntry<String>> _buildMenuItems() {
     final items = <PopupMenuEntry<String>>[];
 
-    // Rol wijzigen opties - superuser kan niet worden toegekend
-    if (user.role != UserRole.gebruikerEenvoud) {
-      items.add(const PopupMenuItem(
-        value: 'make_eenvoud',
-        child: Row(
-          children: [
-            Icon(Icons.person_outline, size: 20),
-            SizedBox(width: 8),
-            Text('Maak eenvoudige gebruiker'),
-          ],
-        ),
-      ));
-    }
-
-    if (user.role != UserRole.gebruiker) {
-      items.add(const PopupMenuItem(
-        value: 'make_gebruiker',
-        child: Row(
-          children: [
-            Icon(Icons.person, size: 20),
-            SizedBox(width: 8),
-            Text('Maak gebruiker'),
-          ],
-        ),
-      ));
-    }
-
-    if (user.role != UserRole.coordinator) {
-      items.add(const PopupMenuItem(
-        value: 'make_coordinator',
-        child: Row(
-          children: [
-            Icon(Icons.analytics, size: 20),
-            SizedBox(width: 8),
-            Text('Maak coordinator'),
-          ],
-        ),
-      ));
-    }
-
-    if (items.isNotEmpty) {
-      items.add(const PopupMenuDivider());
-    }
-
-    // Commentaar bewerken
+    // Profiel bewerken - altijd beschikbaar voor canEdit gebruikers
     items.add(const PopupMenuItem(
-      value: 'edit_comment',
+      value: 'edit_profile',
       child: Row(
         children: [
-          Icon(Icons.comment, size: 20),
+          Icon(Icons.edit, size: 20),
           SizedBox(width: 8),
-          Text('Commentaar bewerken'),
+          Text('Profiel bewerken'),
         ],
       ),
     ));
 
     items.add(const PopupMenuDivider());
 
-    items.add(const PopupMenuItem(
-      value: 'delete',
-      child: Row(
-        children: [
-          Icon(Icons.delete, size: 20, color: Colors.red),
-          SizedBox(width: 8),
-          Text('Verwijderen', style: TextStyle(color: Colors.red)),
-        ],
-      ),
-    ));
+    if (user.role == UserRole.superuser) {
+      // Niet-Admin superuser: demote opties beschikbaar
+      items.add(const PopupMenuItem(
+        value: 'make_coordinator',
+        child: Row(
+          children: [
+            Icon(Icons.analytics, size: 20),
+            SizedBox(width: 8),
+            Text('Terugzetten naar coordinator'),
+          ],
+        ),
+      ));
+      items.add(const PopupMenuItem(
+        value: 'make_gebruiker',
+        child: Row(
+          children: [
+            Icon(Icons.person, size: 20),
+            SizedBox(width: 8),
+            Text('Terugzetten naar gebruiker'),
+          ],
+        ),
+      ));
+      items.add(const PopupMenuItem(
+        value: 'make_eenvoud',
+        child: Row(
+          children: [
+            Icon(Icons.person_outline, size: 20),
+            SizedBox(width: 8),
+            Text('Terugzetten naar standaard gebruiker'),
+          ],
+        ),
+      ));
+      items.add(const PopupMenuDivider());
+      items.add(const PopupMenuItem(
+        value: 'edit_comment',
+        child: Row(
+          children: [
+            Icon(Icons.comment, size: 20),
+            SizedBox(width: 8),
+            Text('Commentaar bewerken'),
+          ],
+        ),
+      ));
+    } else {
+      // Gewone gebruiker: rol-wissel opties inclusief promotie naar superuser
+      if (user.role != UserRole.gebruikerEenvoud) {
+        items.add(const PopupMenuItem(
+          value: 'make_eenvoud',
+          child: Row(
+            children: [
+              Icon(Icons.person_outline, size: 20),
+              SizedBox(width: 8),
+              Text('Maak standaard gebruiker'),
+            ],
+          ),
+        ));
+      }
+      if (user.role != UserRole.gebruiker) {
+        items.add(const PopupMenuItem(
+          value: 'make_gebruiker',
+          child: Row(
+            children: [
+              Icon(Icons.person, size: 20),
+              SizedBox(width: 8),
+              Text('Maak gebruiker'),
+            ],
+          ),
+        ));
+      }
+      if (user.role != UserRole.coordinator) {
+        items.add(const PopupMenuItem(
+          value: 'make_coordinator',
+          child: Row(
+            children: [
+              Icon(Icons.analytics, size: 20),
+              SizedBox(width: 8),
+              Text('Maak coordinator'),
+            ],
+          ),
+        ));
+      }
+      items.add(const PopupMenuItem(
+        value: 'make_superuser',
+        child: Row(
+          children: [
+            Icon(Icons.security, size: 20),
+            SizedBox(width: 8),
+            Text('Maak superuser'),
+          ],
+        ),
+      ));
+      items.add(const PopupMenuDivider());
+      items.add(const PopupMenuItem(
+        value: 'edit_comment',
+        child: Row(
+          children: [
+            Icon(Icons.comment, size: 20),
+            SizedBox(width: 8),
+            Text('Commentaar bewerken'),
+          ],
+        ),
+      ));
+      items.add(const PopupMenuDivider());
+      items.add(const PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(Icons.delete, size: 20, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Verwijderen', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+      ));
+    }
 
     return items;
   }
@@ -284,6 +356,9 @@ class _UserCard extends StatelessWidget {
 
     try {
       switch (action) {
+        case 'edit_profile':
+          await _editProfile(context);
+          break;
         case 'make_eenvoud':
           await _confirmRoleChange(context, authProvider, UserRole.gebruikerEenvoud);
           break;
@@ -292,6 +367,9 @@ class _UserCard extends StatelessWidget {
           break;
         case 'make_coordinator':
           await _confirmRoleChange(context, authProvider, UserRole.coordinator);
+          break;
+        case 'make_superuser':
+          await _confirmRoleChange(context, authProvider, UserRole.superuser);
           break;
         case 'edit_comment':
           await _editComment(context, authProvider);
@@ -312,17 +390,55 @@ class _UserCard extends StatelessWidget {
     }
   }
 
+  Future<void> _editProfile(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AdminEditUserScreen(user: user),
+      ),
+    );
+  }
+
   Future<void> _confirmRoleChange(
     BuildContext context,
     AuthProvider authProvider,
     UserRole newRole,
   ) async {
+    final isSuperuserRole = newRole == UserRole.superuser;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Rol wijzigen'),
-        content: Text(
-          'Weet je zeker dat je ${user.name} de rol "${newRole.displayName}" wilt geven?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Weet je zeker dat je ${user.name} de rol "${newRole.displayName}" wilt geven?',
+            ),
+            if (isSuperuserRole) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Let op: maximaal 2 superusers zijn toegestaan. De superuser Admin kan nooit worden gewijzigd; andere superusers kunnen later worden teruggezet.',
+                        style: TextStyle(fontSize: 13, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
