@@ -379,6 +379,15 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.room.name),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.yellow[100],
+            foregroundColor: Colors.deepOrange,
+            shape: const CircleBorder(),
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           if (authProvider.isSuperuser)
             PopupMenuButton<String>(
@@ -579,8 +588,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 icon: const Icon(Icons.chevron_left, size: 18),
                 label: const Text('Vorige week', style: TextStyle(fontSize: 13)),
                 style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.yellow[100],
+                  foregroundColor: Colors.deepOrange,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: const BorderSide(width: 2),
+                  side: const BorderSide(color: Colors.deepOrange, width: 2),
                 ),
               ),
               Padding(
@@ -597,8 +608,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 label: const Text('Volgende week', style: TextStyle(fontSize: 13)),
                 iconAlignment: IconAlignment.end,
                 style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.yellow[100],
+                  foregroundColor: Colors.deepOrange,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: const BorderSide(width: 2),
+                  side: const BorderSide(color: Colors.deepOrange, width: 2),
                 ),
               ),
             ],

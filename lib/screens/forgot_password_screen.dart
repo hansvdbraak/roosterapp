@@ -136,6 +136,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Wachtwoord vergeten'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.yellow[100],
+            foregroundColor: Colors.deepOrange,
+            shape: const CircleBorder(),
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

@@ -12,8 +12,14 @@ IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 # Increment patch version (10# prefix forces decimal to avoid octal interpretation)
 PATCH=$((10#$PATCH + 1))
 
-# Format new version (ensure two digits for patch)
-NEW_VERSION="$MAJOR.$MINOR.$(printf "%02d" $PATCH)"
+# Bij 100 de minor ophogen en patch resetten
+if [ $PATCH -ge 100 ]; then
+  PATCH=0
+  MINOR=$((10#$MINOR + 1))
+fi
+
+# Format new version (ensure two digits for minor and patch)
+NEW_VERSION="$MAJOR.$(printf "%02d" $MINOR).$(printf "%02d" $PATCH)"
 
 # Update version file
 cat > "$VERSION_FILE" << EOF

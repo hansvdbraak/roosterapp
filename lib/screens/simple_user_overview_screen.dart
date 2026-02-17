@@ -162,13 +162,11 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
             : _selectedUser!.name),
         leading: _selectedUser != null
             ? IconButton(
-                icon: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(6),
-                  child: const Icon(Icons.arrow_back, color: Colors.orange, size: 20),
+                icon: const Icon(Icons.arrow_back),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.yellow[100],
+                  foregroundColor: Colors.deepOrange,
+                  shape: const CircleBorder(),
                 ),
                 onPressed: _goBack,
               )

@@ -34,6 +34,15 @@ class _ChangelogScreenState extends State<ChangelogScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Versielogboek'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.yellow[100],
+            foregroundColor: Colors.deepOrange,
+            shape: const CircleBorder(),
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

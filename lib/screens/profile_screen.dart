@@ -122,24 +122,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mijn profiel'),
-        leading: InkWell(
-          onTap: () => Navigator.of(context).pop(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(6),
-                child: const Icon(Icons.arrow_back, color: Colors.orange, size: 20),
-              ),
-              const SizedBox(width: 4),
-              const Text('Annuleren', style: TextStyle(fontSize: 13)),
-            ],
+        leading: TextButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.yellow[100],
+              foregroundColor: Colors.deepOrange,
+              shape: const CircleBorder(),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(28, 28),
+              fixedSize: const Size(28, 28),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
           ),
+          label: const Text('Annuleren', style: TextStyle(fontSize: 13)),
         ),
         leadingWidth: 120,
         actions: const [

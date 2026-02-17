@@ -113,6 +113,15 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Profiel bewerken: ${widget.user.name}'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.yellow[100],
+            foregroundColor: Colors.deepOrange,
+            shape: const CircleBorder(),
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: const [
           AppHeaderActions(showDate: true),
         ],
