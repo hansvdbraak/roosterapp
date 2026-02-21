@@ -34,7 +34,9 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final initDate = widget.initialDate;
     _selectedDate = DateTime.utc(initDate.year, initDate.month, initDate.day);
     final now = DateTime.now();
-    _dayPartWeekStart = DateTime.utc(now.year, now.month, now.day);
+    final today = DateTime.utc(now.year, now.month, now.day);
+    // Snap naar maandag van de huidige week (weekday: 1=ma, 7=zo)
+    _dayPartWeekStart = today.subtract(Duration(days: today.weekday - 1));
   }
 
   void _previousDay() {
@@ -560,7 +562,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 
-  /// Dagdeel weergave voor standaard gebruikers - 2 weken tabel
+  /// Dagdeel weergave voor standaard gebruikers - 2 weken tabel gegroepeerd per week
   Widget _buildDayPartView(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
@@ -570,6 +572,45 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final endDate = _dayPartWeekStart.add(const Duration(days: 13));
     final rangeLabel =
         '${DateFormat('d MMM', 'nl').format(_dayPartWeekStart)} – ${DateFormat('d MMM', 'nl').format(endDate)}';
+
+    // ISO 8601 weeknummer berekening (geen DateFormat('w') — niet betrouwbaar in Flutter web)
+    int isoWeekNumber(DateTime date) {
+      final d = DateTime.utc(date.year, date.month, date.day);
+      final thu = d.add(Duration(days: 4 - d.weekday));
+      final yearStart = DateTime.utc(thu.year, 1, 1);
+      return (thu.difference(yearStart).inDays ~/ 7) + 1;
+    }
+
+    // Bouw de rijen voor een week, voorafgegaan door een weekheader
+    List<Widget> buildWeekSection(DateTime weekStart) {
+      final weekNum = isoWeekNumber(weekStart);
+      return [
+        // Weeknummer header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          color: Theme.of(context).colorScheme.primaryContainer.withAlpha(160),
+          child: Text(
+            'Week $weekNum',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+        ...List.generate(7, (i) {
+          final date = weekStart.add(Duration(days: i));
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDayPartRow(context, date, now, authProvider, reservationProvider),
+              const Divider(height: 1),
+            ],
+          );
+        }),
+      ];
+    }
 
     return Column(
       children: [
@@ -635,21 +676,13 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           ),
         ),
         const Divider(height: 1),
-        // 14 dagen
+        // 14 dagen in 2 weekgroepen
         Expanded(
-          child: ListView.separated(
-            itemCount: 14,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final date = _dayPartWeekStart.add(Duration(days: index));
-              return _buildDayPartRow(
-                context,
-                date,
-                now,
-                authProvider,
-                reservationProvider,
-              );
-            },
+          child: ListView(
+            children: [
+              ...buildWeekSection(_dayPartWeekStart),
+              ...buildWeekSection(_dayPartWeekStart.add(const Duration(days: 7))),
+            ],
           ),
         ),
       ],
@@ -665,7 +698,6 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   ) {
     final dayLabel = DateFormat('EEE', 'nl').format(date);
     final dateLabel = DateFormat('d MMM', 'nl').format(date);
-    final allReservations = reservationProvider.getReservationsForRoom(widget.room.id, date);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -710,18 +742,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 (status.bookedByUser > 0 ||
                     (authProvider.isSuperuser && status.hasAnyBookings));
 
-            // Zoek naam van eerste andere boeker voor dit dagdeel
-            String? otherBookerName;
-            if (status.bookedByOthers > 0) {
-              for (int i = dayPart.startSlotIndex; i < dayPart.endSlotIndex; i++) {
-                final res = allReservations.where((r) =>
-                    r.slotIndex == i && r.bookerName != authProvider.userName).firstOrNull;
-                if (res != null) {
-                  otherBookerName = res.bookerName;
-                  break;
-                }
-              }
-            }
+            // Naam van andere boeker zit al in status (vanuit dezelfde cache-loop)
+            final otherBookerName = status.firstOtherBookerName;
 
             return Expanded(
               child: _DayPartCell(
@@ -729,6 +751,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 isPast: isPast,
                 canBook: canBook,
                 canCancel: canCancel,
+                ownName: authProvider.userName,
                 otherBookerName: otherBookerName,
                 onBook: () => _bookDayPart(dayPart, date),
                 onCancel: () => _cancelDayPart(dayPart, date),
@@ -836,12 +859,13 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   }
 }
 
-/// Compacte cel voor de 2-weken dagdeel-tabel — button-stijl met dikke rand
+/// Grote gekleurde cel voor de dagdeel-tabel — volledig gevuld, witte tekst
 class _DayPartCell extends StatelessWidget {
   final DayPartStatus status;
   final bool isPast;
   final bool canBook;
   final bool canCancel;
+  final String? ownName;
   final String? otherBookerName;
   final VoidCallback onBook;
   final VoidCallback onCancel;
@@ -853,47 +877,30 @@ class _DayPartCell extends StatelessWidget {
     required this.canCancel,
     required this.onBook,
     required this.onCancel,
+    this.ownName,
     this.otherBookerName,
   });
 
   @override
   Widget build(BuildContext context) {
     Color bgColor;
-    Color borderColor;
-    Color textColor;
     String label;
-    IconData icon;
 
     if (isPast) {
-      bgColor = Colors.grey[100]!;
-      borderColor = Colors.grey[300]!;
-      textColor = Colors.grey[400]!;
-      label = '–';
-      icon = Icons.remove;
+      bgColor = const Color(0xFFDDDDDD);
+      label = '';
     } else if (status.isFullyAvailable) {
-      bgColor = Colors.green[50]!;
-      borderColor = Colors.green[600]!;
-      textColor = Colors.green[700]!;
+      bgColor = const Color(0xFFFF2800); // Ferrari rood = vrij
       label = 'Vrij';
-      icon = Icons.check_circle_outline;
-    } else if (status.isFullyBookedByUser) {
-      bgColor = Colors.blue[50]!;
-      borderColor = Colors.blue[600]!;
-      textColor = Colors.blue[700]!;
-      label = 'Jij';
-      icon = Icons.event_available;
-    } else if (status.bookedByOthers == status.totalSlots) {
-      bgColor = Colors.red[50]!;
-      borderColor = Colors.red[600]!;
-      textColor = Colors.red[700]!;
-      label = 'Bezet';
-      icon = Icons.event_busy;
+    } else if (status.bookedByOthers > 0) {
+      bgColor = const Color(0xFF4CBB17); // kikkergroen = bezet door ander
+      label = otherBookerName ?? 'Bezet';
+    } else if (status.bookedByUser > 0) {
+      bgColor = const Color(0xFF1565C0); // blauw = eigen boeking
+      label = ownName ?? 'Jij';
     } else {
-      bgColor = Colors.orange[50]!;
-      borderColor = Colors.orange[600]!;
-      textColor = Colors.orange[700]!;
-      label = 'Deels';
-      icon = Icons.event_note;
+      bgColor = const Color(0xFFDDDDDD);
+      label = '';
     }
 
     final tappable = !isPast && (canBook || canCancel);
@@ -903,16 +910,6 @@ class _DayPartCell extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor, width: 2.5),
-        boxShadow: isPast
-            ? null
-            : [
-                BoxShadow(
-                  color: borderColor.withAlpha(100),
-                  blurRadius: 3,
-                  offset: const Offset(1, 2),
-                ),
-              ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -920,44 +917,23 @@ class _DayPartCell extends StatelessWidget {
         child: InkWell(
           onTap: tappable ? (canBook ? onBook : onCancel) : null,
           borderRadius: BorderRadius.circular(8),
+          splashColor: Colors.white24,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 18, color: textColor),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: textColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                if (otherBookerName != null) ...[
-                  const SizedBox(height: 1),
-                  Text(
-                    otherBookerName!,
-                    style: TextStyle(fontSize: 9, color: textColor),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ],
-                if (status.isFullyBookedByUser && otherBookerName == null) ...[
-                  const SizedBox(height: 1),
-                  Text(
-                    'Jouw boeking',
-                    style: TextStyle(fontSize: 9, color: textColor),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ],
-              ],
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+            child: Center(
+              child: label.isEmpty
+                  ? const SizedBox.shrink()
+                  : Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
             ),
           ),
         ),

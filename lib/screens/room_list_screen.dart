@@ -24,6 +24,7 @@ class RoomListScreen extends StatefulWidget {
 
 class _RoomListScreenState extends State<RoomListScreen> {
   DateTime _selectedDate = () { final n = DateTime.now(); return DateTime.utc(n.year, n.month, n.day); }();
+  bool _showRooms = false;
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -65,18 +66,31 @@ class _RoomListScreenState extends State<RoomListScreen> {
     final roomProvider = context.watch<RoomProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
 
+    final isStandaardGebruiker = authProvider.userRole == UserRole.gebruikerEenvoud;
+
+    // Coordinator én superuser krijgen het dashboard (tenzij ze naar ruimtelijst navigeerden)
+    final showDashboard = authProvider.isCoordinator && !_showRooms;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ruimtes'),
+        leading: authProvider.isCoordinator && _showRooms
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _showRooms = false),
+              )
+            : null,
+        automaticallyImplyLeading: false,
+        title: Text(showDashboard ? 'Overzicht' : 'Ruimtes'),
         actions: [
-          TextButton.icon(
-            onPressed: _selectDate,
-            icon: const Icon(Icons.calendar_today),
-            label: Text(
-              DateFormat('d MMM', 'nl').format(_selectedDate),
-              style: const TextStyle(fontWeight: FontWeight.bold),
+          if (!showDashboard)
+            TextButton.icon(
+              onPressed: _selectDate,
+              icon: const Icon(Icons.calendar_today),
+              label: Text(
+                DateFormat('d MMM', 'nl').format(_selectedDate),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle),
             onSelected: (value) {
@@ -152,48 +166,6 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 ),
               ),
 
-              // Coördinator dashboard (voor coördinatoren en superuser)
-              if (authProvider.isCoordinator)
-                const PopupMenuItem(
-                  value: 'dashboard',
-                  child: Row(
-                    children: [
-                      Icon(Icons.analytics),
-                      SizedBox(width: 8),
-                      Text('Bezettingsoverzicht'),
-                    ],
-                  ),
-                ),
-
-              // Eenvoudige gebruikers overzicht (voor coördinatoren en superuser)
-              if (authProvider.isCoordinator)
-                const PopupMenuItem(
-                  value: 'user_overview',
-                  child: Row(
-                    children: [
-                      Icon(Icons.people_outline),
-                      SizedBox(width: 8),
-                      Text('Standaard gebruikers'),
-                    ],
-                  ),
-                ),
-
-              // Gebruikersbeheer (alleen voor superuser)
-              if (authProvider.isSuperuser)
-                const PopupMenuItem(
-                  value: 'users',
-                  child: Row(
-                    children: [
-                      Icon(Icons.people),
-                      SizedBox(width: 8),
-                      Text('Gebruikersbeheer'),
-                    ],
-                  ),
-                ),
-
-              if (authProvider.isCoordinator)
-                const PopupMenuDivider(),
-
               // Uitloggen
               const PopupMenuItem(
                 value: 'logout',
@@ -209,55 +181,180 @@ class _RoomListScreenState extends State<RoomListScreen> {
           ),
         ],
       ),
-      body: Builder(
-        builder: (context) {
-          // Filter alleen actieve ruimtes (niet overbodig)
-          final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList()
-            ..sort((a, b) => a.name.compareTo(b.name));
+      body: showDashboard
+          ? _buildCoordinatorDashboard(context)
+          : Builder(
+              builder: (context) {
+                // Filter alleen actieve ruimtes
+                final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList()
+                  ..sort((a, b) => a.name.compareTo(b.name));
 
-          if (activeRooms.isEmpty) {
-            return const Center(
-              child: Text('Geen ruimtes beschikbaar'),
-            );
-          }
+                // Standaard gebruikers zien alleen Trefpunt Ambassadeurs
+                final visibleRooms = isStandaardGebruiker
+                    ? activeRooms
+                        .where((r) => r.name.toLowerCase().contains('trefpunt ambassadeurs'))
+                        .toList()
+                    : activeRooms;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: activeRooms.map((room) {
-                return _RoomCard(
-                  room: room,
-                  selectedDate: _selectedDate,
-                  reservationProvider: reservationProvider,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => RoomDetailScreen(
-                          room: room,
-                          initialDate: _selectedDate,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }).toList(),
-            ),
-          );
-        },
-      ),
-      floatingActionButton: authProvider.isSuperuser
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AddRoomScreen()),
+                if (visibleRooms.isEmpty) {
+                  return const Center(
+                    child: Text('Geen ruimtes beschikbaar'),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: visibleRooms.map((room) {
+                      return _RoomCard(
+                        room: room,
+                        selectedDate: _selectedDate,
+                        reservationProvider: reservationProvider,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => RoomDetailScreen(
+                                room: room,
+                                initialDate: _selectedDate,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }).toList(),
+                  ),
                 );
               },
-              icon: const Icon(Icons.add),
-              label: const Text('Ruimte'),
-            )
-          : null,
+            ),
+    );
+  }
+
+  Widget _buildCoordinatorDashboard(BuildContext context) {
+    final isSuperuser = context.read<AuthProvider>().isSuperuser;
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _CoordinatorActionCard(
+            icon: Icons.meeting_room,
+            title: 'Ruimte reserveren',
+            subtitle: 'Bekijk en reserveer beschikbare ruimtes',
+            color: Colors.blue,
+            onTap: () => setState(() => _showRooms = true),
+          ),
+          const SizedBox(height: 16),
+          _CoordinatorActionCard(
+            icon: Icons.analytics,
+            title: 'Bezettingsoverzicht',
+            subtitle: 'Bekijk de bezetting per week of kwartaal',
+            color: Colors.orange,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CoordinatorDashboardScreen()),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _CoordinatorActionCard(
+            icon: Icons.people_outline,
+            title: 'Standaard gebruikers',
+            subtitle: 'Bekijk overzicht van standaard gebruikers',
+            color: Colors.teal,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SimpleUserOverviewScreen()),
+            ),
+          ),
+          if (isSuperuser) ...[
+            const SizedBox(height: 16),
+            _CoordinatorActionCard(
+              icon: Icons.add_home_work,
+              title: 'Ruimte toevoegen',
+              subtitle: 'Maak een nieuwe ruimte aan',
+              color: Colors.green,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddRoomScreen()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _CoordinatorActionCard(
+              icon: Icons.manage_accounts,
+              title: 'Gebruikersbeheer',
+              subtitle: 'Beheer gebruikers en rollen',
+              color: Colors.purple,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const UserManagementScreen()),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CoordinatorActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _CoordinatorActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: color.withAlpha((255 * 0.12).round()),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey[400]),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -286,7 +383,7 @@ class _RoomCard extends StatelessWidget {
     Color statusColor;
     String statusText;
     if (bookedSlots == 0) {
-      statusColor = Colors.green;
+      statusColor = const Color(0xFFFF2800); // Ferrari rood = beschikbaar
       statusText = 'Beschikbaar';
     } else if (bookedSlots == totalSlots) {
       statusColor = Colors.red;
@@ -415,7 +512,7 @@ class _RoomCard extends StatelessWidget {
                       Icons.access_time,
                       size: 16,
                       color: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                          ? (statusText == 'Beschikbaar' ? const Color(0xFF7FFF00) : Colors.white)
+                          ? (statusText == 'Beschikbaar' ? const Color(0xFFFF2800) : Colors.white)
                           : statusColor,
                     ),
                     const SizedBox(width: 4),
@@ -423,7 +520,7 @@ class _RoomCard extends StatelessWidget {
                       statusText,
                       style: TextStyle(
                         color: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                            ? (statusText == 'Beschikbaar' ? const Color(0xFF7FFF00) : Colors.white)
+                            ? (statusText == 'Beschikbaar' ? const Color(0xFFFF2800) : Colors.white)
                             : statusColor,
                         fontWeight: statusText == 'Beschikbaar' ? FontWeight.bold : FontWeight.w500,
                         fontSize: 16,

@@ -18,7 +18,6 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
   bool _obscurePassword = true;
 
   @override
@@ -52,8 +51,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
     try {
       await context.read<AuthProvider>().loginWithUsername(
             username: _usernameController.text,
@@ -76,8 +73,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       } else {
         _showError(errorMsg);
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -222,22 +217,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     },
                     child: const Text('Wachtwoord vergeten?', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Login knop
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Inloggen', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 24),
 

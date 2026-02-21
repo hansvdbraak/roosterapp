@@ -133,6 +133,7 @@ class ReservationProvider extends ChangeNotifier {
     int bookedByUser = 0;
     int bookedByOthers = 0;
     int available = 0;
+    String? firstOtherBookerName;
 
     for (int i = dayPart.startSlotIndex; i < dayPart.endSlotIndex; i++) {
       final reservation = getReservationForSlot(roomId, date, i);
@@ -142,6 +143,7 @@ class ReservationProvider extends ChangeNotifier {
         bookedByUser++;
       } else {
         bookedByOthers++;
+        firstOtherBookerName ??= reservation.bookerName;
       }
     }
 
@@ -150,6 +152,7 @@ class ReservationProvider extends ChangeNotifier {
       bookedByUser: bookedByUser,
       bookedByOthers: bookedByOthers,
       available: available,
+      firstOtherBookerName: firstOtherBookerName,
     );
   }
 
@@ -274,12 +277,14 @@ class DayPartStatus {
   final int bookedByUser;
   final int bookedByOthers;
   final int available;
+  final String? firstOtherBookerName;
 
   DayPartStatus({
     required this.dayPart,
     required this.bookedByUser,
     required this.bookedByOthers,
     required this.available,
+    this.firstOtherBookerName,
   });
 
   int get totalSlots => bookedByUser + bookedByOthers + available;
