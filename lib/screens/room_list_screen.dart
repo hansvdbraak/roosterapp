@@ -189,10 +189,12 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList()
                   ..sort((a, b) => a.name.compareTo(b.name));
 
-                // Standaard gebruikers zien alleen Trefpunt Ambassadeurs
+                // Standaard gebruikers zien alleen Trefpunt Ambassadeurs en Trefpunt Aquarium
                 final visibleRooms = isStandaardGebruiker
                     ? activeRooms
-                        .where((r) => r.name.toLowerCase().contains('trefpunt ambassadeurs'))
+                        .where((r) =>
+                            r.name.toLowerCase().contains('trefpunt ambassadeurs') ||
+                            r.name.toLowerCase().contains('trefpunt aquarium'))
                         .toList()
                     : activeRooms;
 

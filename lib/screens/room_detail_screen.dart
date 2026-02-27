@@ -324,6 +324,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     }
   }
 
+  bool get _allowsEveningBooking {
+    final name = widget.room.name.toLowerCase();
+    return name.contains('trefpunt aquarium') || name.contains('de kuil in het gemeentehuis');
+  }
+
   Future<void> _deleteRoom() async {
     final roomProvider = context.read<RoomProvider>();
 
@@ -665,13 +670,15 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           child: Row(
             children: [
               const SizedBox(width: 68),
-              ...DayPart.values.map((dayPart) => Expanded(
-                    child: Text(
-                      dayPart.displayName,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  )),
+              ...DayPart.values
+                  .where((dp) => dp != DayPart.avond || _allowsEveningBooking)
+                  .map((dayPart) => Expanded(
+                        child: Text(
+                          dayPart.displayName,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      )),
             ],
           ),
         ),
@@ -722,7 +729,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             ),
           ),
           // Dagdeel cellen met ruimte ertussen
-          ...DayPart.values.map((dayPart) {
+          ...DayPart.values.where((dp) => dp != DayPart.avond || _allowsEveningBooking).map((dayPart) {
             final status = reservationProvider.getDayPartStatus(
               widget.room.id,
               date,
@@ -849,8 +856,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               buildSlotColumn(col1Slots, 'Tot 13:00', Colors.orange),
               const SizedBox(width: 8),
               buildSlotColumn(col2Slots, '13:00-17:00', Colors.blue),
-              const SizedBox(width: 8),
-              buildSlotColumn(col3Slots, '19:00-22:00', Colors.purple),
+              if (_allowsEveningBooking) ...[
+                const SizedBox(width: 8),
+                buildSlotColumn(col3Slots, '19:00-22:00', Colors.purple),
+              ],
             ],
           ),
         ],
