@@ -91,7 +91,8 @@ class _UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roleColor = _getRoleColor(user.role);
-    final canEdit = isSuperuser && !isCurrentUser && user.name != 'Admin';
+    final canEditProfile = isSuperuser && !isCurrentUser;
+    final canChangeRole = isSuperuser && !isCurrentUser && user.name != 'Admin';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -143,11 +144,11 @@ class _UserCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  canEdit
+                  canEditProfile
                       ? PopupMenuButton<String>(
                           icon: const Icon(Icons.more_vert),
                           onSelected: (value) => _handleAction(context, value),
-                          itemBuilder: (context) => _buildMenuItems(),
+                          itemBuilder: (context) => _buildMenuItems(canChangeRole: canChangeRole),
                         )
                       : (isSuperuser
                           ? Icon(Icons.chevron_right, color: Colors.grey[400])
@@ -216,10 +217,10 @@ class _UserCard extends StatelessWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() {
+  List<PopupMenuEntry<String>> _buildMenuItems({bool canChangeRole = true}) {
     final items = <PopupMenuEntry<String>>[];
 
-    // Profiel bewerken - altijd beschikbaar voor canEdit gebruikers
+    // Profiel bewerken - altijd beschikbaar voor canEditProfile gebruikers
     items.add(const PopupMenuItem(
       value: 'edit_profile',
       child: Row(
@@ -230,6 +231,8 @@ class _UserCard extends StatelessWidget {
         ],
       ),
     ));
+
+    if (!canChangeRole) return items;
 
     items.add(const PopupMenuDivider());
 

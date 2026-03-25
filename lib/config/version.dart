@@ -1,5 +1,5 @@
 /// App version configuration
 /// Update this after each build
 class AppVersion {
-  static const String version = '2.02.18';
+  static const String version = '2.02.21';
 }

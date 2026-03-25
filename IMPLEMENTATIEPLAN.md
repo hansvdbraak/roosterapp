@@ -434,7 +434,7 @@ dart pub global activate serverpod_cli
 5. Gebruiker klikt "Boek" voor slot 14:00 (slotIndex 12)
 6. Bevestigingsdialoog verschijnt
 7. Bij bevestiging: ReservationProvider.createReservation()
-   - Optimistic update: toon direct als bezet (UI feedback)
+   - Optimistic update: toon direct als bezet (UI feedbackc)
    - API call: `POST /reservation/create` met body:
      ```json
      {

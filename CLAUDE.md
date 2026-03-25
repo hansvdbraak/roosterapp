@@ -5,4 +5,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 This is a Flutter application named "roosterapp" - currently using the default Flutter starter template 
-show with a counter demo app.
+show ik with a counter demo app.

@@ -539,12 +539,21 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
       7,
     );
 
+    final coordinatorUsers = _getCoordinatorUsersWithHours(
+      reservationProvider,
+      roomProvider,
+      authProvider,
+      weekStart,
+      7,
+    );
+
     final isVerwerkt = _verwerktWeeks.contains(_weekKey(weekStart));
 
     return _buildUserHoursList(
       title: 'Week $weekNumber',
       subtitle: '${DateFormat('d MMMM', 'nl').format(weekStart)} - ${DateFormat('d MMMM yyyy', 'nl').format(weekEnd)}',
       users: eenvoudigUsers,
+      coordinatorUsers: coordinatorUsers,
       isVerwerkt: isVerwerkt,
       onToggleVerwerkt: () => _toggleVerwerktWeek(weekStart),
     );
@@ -574,12 +583,21 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
       daysInQuarter,
     );
 
+    final coordinatorUsers = _getCoordinatorUsersWithHours(
+      reservationProvider,
+      roomProvider,
+      authProvider,
+      quarterStart,
+      daysInQuarter,
+    );
+
     final isVerwerkt = _verwerktQuarters.contains(_quarterKey(_selectedYear, _selectedQuarter!));
 
     return _buildUserHoursList(
       title: _getQuarterName(_selectedQuarter!),
       subtitle: '${DateFormat('d MMMM', 'nl').format(quarterStart)} - ${DateFormat('d MMMM yyyy', 'nl').format(quarterEnd)}',
       users: eenvoudigUsers,
+      coordinatorUsers: coordinatorUsers,
       isVerwerkt: isVerwerkt,
       onToggleVerwerkt: () => _toggleVerwerktQuarter(_selectedYear, _selectedQuarter!),
     );
@@ -657,10 +675,68 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     return eenvoudigUsers;
   }
 
+  List<_UserHours> _getCoordinatorUsersWithHours(
+    ReservationProvider reservationProvider,
+    RoomProvider roomProvider,
+    AuthProvider authProvider,
+    DateTime startDate,
+    int days,
+  ) {
+    final Map<String, int> slotsCol1ByUser = {};
+    final Map<String, int> slotsCol2ByUser = {};
+    final Map<String, int> slotsCol3ByUser = {};
+    final rooms = roomProvider.rooms.where((r) => r.isBookable).toList();
+
+    for (int day = 0; day < days; day++) {
+      final date = startDate.add(Duration(days: day));
+      if (date.weekday <= 5) {
+        for (final room in rooms) {
+          final reservations = reservationProvider.getReservationsForRoom(room.id, date);
+          for (final res in reservations) {
+            final name = res.bookerName;
+            final slotIndex = res.slotIndex;
+            if (slotIndex >= 0 && slotIndex <= 9) {
+              slotsCol1ByUser[name] = (slotsCol1ByUser[name] ?? 0) + 1;
+            } else if (slotIndex >= 10 && slotIndex <= 17) {
+              slotsCol2ByUser[name] = (slotsCol2ByUser[name] ?? 0) + 1;
+            } else if (slotIndex >= 22 && slotIndex <= 27) {
+              slotsCol3ByUser[name] = (slotsCol3ByUser[name] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+
+    final allNames = <String>{
+      ...slotsCol1ByUser.keys,
+      ...slotsCol2ByUser.keys,
+      ...slotsCol3ByUser.keys,
+    };
+
+    final coordinatorUsers = <_UserHours>[];
+    for (final name in allNames) {
+      final user = authProvider.getUserByName(name);
+      if (user != null &&
+          (user.role == UserRole.coordinator || user.role == UserRole.superuser)) {
+        coordinatorUsers.add(_UserHours(
+          name: name,
+          slotsCol1: slotsCol1ByUser[name] ?? 0,
+          slotsCol2: slotsCol2ByUser[name] ?? 0,
+          slotsCol3: slotsCol3ByUser[name] ?? 0,
+          comment: user.comment,
+        ));
+      }
+    }
+
+    coordinatorUsers.sort((a, b) => b.totalSlots.compareTo(a.totalSlots));
+    return coordinatorUsers;
+  }
+
   Widget _buildUserHoursList({
     required String title,
     required String subtitle,
     required List<_UserHours> users,
+    List<_UserHours> coordinatorUsers = const [],
     bool isVerwerkt = false,
     VoidCallback? onToggleVerwerkt,
   }) {
@@ -799,6 +875,107 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
               ),
             ),
           ),
+
+        // Coördinatoren sectie
+        if (coordinatorUsers.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withAlpha((255 * 0.3).round())),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.analytics, color: Colors.orange[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Coördinatoren (alle ruimten)',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${coordinatorUsers.length} coördinator${coordinatorUsers.length == 1 ? '' : 'en'}',
+                  style: TextStyle(color: Colors.orange[600], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Coördinator',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                _buildColumnHeader('Tot 13u', Colors.orange),
+                _buildColumnHeader('13-17u', Colors.blue),
+                _buildColumnHeader('19-22u', Colors.purple),
+                _buildColumnHeader('Totaal', Colors.teal),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...coordinatorUsers.map((user) => _UserHoursCard(user: user)),
+          const SizedBox(height: 8),
+          Card(
+            color: Colors.orange[50],
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Subtotaal coördinatoren',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.orange[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Expanded(flex: 3, child: SizedBox()),
+                      _buildTotalBadge(
+                        coordinatorUsers.fold<int>(0, (s, u) => s + u.slotsCol1) * 0.5,
+                        Colors.orange,
+                      ),
+                      _buildTotalBadge(
+                        coordinatorUsers.fold<int>(0, (s, u) => s + u.slotsCol2) * 0.5,
+                        Colors.blue,
+                      ),
+                      _buildTotalBadge(
+                        coordinatorUsers.fold<int>(0, (s, u) => s + u.slotsCol3) * 0.5,
+                        Colors.purple,
+                      ),
+                      _buildTotalBadge(
+                        coordinatorUsers.fold<int>(0, (s, u) => s + u.totalSlots) * 0.5,
+                        Colors.teal,
+                        isTotal: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
 
         // Verwerkt knop
         if (onToggleVerwerkt != null) ...[

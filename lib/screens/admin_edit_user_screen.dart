@@ -129,11 +129,15 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                 // Rol info (niet bewerkbaar)
                 Card(
                   color: Colors.purple[50],
@@ -451,7 +455,9 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                   ),
                   child: const Text('Annuleren'),
                 ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
