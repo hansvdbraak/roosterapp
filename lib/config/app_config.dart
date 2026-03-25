@@ -1,35 +1,36 @@
 /// Applicatie configuratie
 ///
-/// Wijzig deze waarden om de app te configureren voor development of productie.
+/// Selecteer omgeving bij build via --dart-define=ENV=staging of ENV=production
+/// Standaard (geen dart-define): productie
 class AppConfig {
   // Prevent instantiation
   AppConfig._();
 
+  static const String _env = String.fromEnvironment('ENV', defaultValue: 'production');
+
   // ==========================================================================
-  // SERVER CONFIGURATIE
+  // SERVER CONFIGURATIE (automatisch op basis van ENV)
   // ==========================================================================
 
-  /// Server hostname of IP-adres
-  ///
-  /// Voorbeelden:
-  /// - Development lokaal: 'localhost' of '127.0.0.1'
-  /// - Development netwerk: '192.168.1.100'
-  /// - Productie: 'api.4ub2b.com'
-  static const String serverHost = 'rooster.4ub2b.com';
+  static String get serverHost {
+    if (_env == 'staging') return staging.host;
+    if (_env == 'local') return localDev.host;
+    return production.host;
+  }
 
-  /// Server poort
-  ///
-  /// Standaard poorten:
-  /// - Development: 8080
-  /// - Productie HTTP: 80
-  /// - Productie HTTPS: 443
-  static const int serverPort = 443;
+  static int get serverPort {
+    if (_env == 'staging') return staging.port;
+    if (_env == 'local') return localDev.port;
+    return production.port;
+  }
 
-  /// Gebruik HTTPS voor verbinding
-  ///
-  /// - Development: false (tenzij je lokaal SSL hebt)
-  /// - Productie: true
-  static const bool useHttps = true;
+  static bool get useHttps {
+    if (_env == 'staging') return staging.useHttps;
+    if (_env == 'local') return localDev.useHttps;
+    return production.useHttps;
+  }
+
+  static String get environment => _env;
 
   // ==========================================================================
   // APP INFORMATIE
@@ -52,32 +53,32 @@ class AppConfig {
   static const String supportPhoneNumberRaw = '+31642465338';
 
   // ==========================================================================
-  // DEVELOPMENT PRESETS
+  // OMGEVING PRESETS
   // ==========================================================================
 
-  /// Snelle configuratie voor lokale development
+  /// Lokale development
   static const ServerConfig localDev = ServerConfig(
     host: 'localhost',
     port: 8080,
     useHttps: false,
   );
 
-  /// Snelle configuratie voor development op netwerk
-  static const ServerConfig networkDev = ServerConfig(
-    host: '192.168.1.100', // Pas aan naar je server IP
-    port: 8080,
+  /// Staging server
+  static const ServerConfig staging = ServerConfig(
+    host: 'staging.4ub2b.com',
+    port: 8090,
     useHttps: false,
   );
 
-  /// Snelle configuratie voor productie
+  /// Productie
   static const ServerConfig production = ServerConfig(
-    host: 'api.4ub2b.com',
+    host: 'rooster.4ub2b.com',
     port: 443,
     useHttps: true,
   );
 }
 
-/// Helper class voor development configuraties
+/// Helper class voor server configuraties
 class ServerConfig {
   final String host;
   final int port;
