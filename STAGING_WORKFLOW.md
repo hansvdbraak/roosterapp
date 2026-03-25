@@ -4,99 +4,125 @@
 
 | | Productie | Staging |
 |---|---|---|
-| **Server** | `rooster.4ub2b.com` (poort 443, HTTPS) | `staging.4ub2b.com` (poort 8090, HTTP) |
+| **URL** | `https://rooster.4ub2b.com` | `http://staging.4ub2b.com` |
 | **Database** | `roosterapp` (user: `roosterapp`) | `roosterapp_staging` (user: `roosterapp_staging`) |
 | **Systemd service** | `rooster-server` | `rooster-staging` |
 | **Logs** | `/var/log/rooster_server.log` | `/var/log/rooster_staging.log` |
 | **Config** | `config/production.yaml` | `config/staging.yaml` |
+| **Web bestanden** | `/var/www/roosterapp` | `/var/www/roosterapp_staging` |
 
 ---
 
-## Ontwikkelen op staging
+## Werken in staging-mode
 
-### 1. Flutter app bouwen voor staging (web)
+### Flutter app bouwen en deployen naar staging
 
 ```bash
+# Stap 1: build
 flutter build web --dart-define=ENV=staging
+
+# Stap 2: deploy naar VPS
+scp -r build/web/* root@91.99.141.133:/var/www/roosterapp_staging/
 ```
 
-De app wijst dan automatisch naar `staging.4ub2b.com:8090`.
-
-### 2. Flutter app draaien voor staging (lokaal testen)
+### Flutter lokaal draaien tegen staging server
 
 ```bash
 flutter run --dart-define=ENV=staging
 ```
 
-### 3. Flutter app bouwen voor productie (standaard, geen extra vlag nodig)
+### Server code deployen naar staging
 
 ```bash
-flutter build web
-```
-
----
-
-## Server code deployen naar staging
-
-```bash
-# Kopieer server code naar VPS
 scp -r /Users/hansvandebraak/IdeaProjects/rooster/rooster_server/* root@91.99.141.133:/opt/rooster_server/
-
-# Herstart staging service
 ssh root@91.99.141.133 "systemctl restart rooster-staging"
-
-# Check logs
 ssh root@91.99.141.133 "tail -f /var/log/rooster_staging.log"
 ```
 
----
+### Database migraties op staging
 
-## Database migraties
-
-### Nieuwe migratie aanmaken (lokaal)
-
-```bash
-cd /Users/hansvandebraak/IdeaProjects/rooster/rooster_server
-dart pub global run serverpod_cli create-migration
-```
-
-### Migratie uitvoeren op staging
-
-Migraties worden automatisch toegepast bij het (her)starten van de staging service (`--apply-migrations` flag staat in de systemd unit).
+Migraties worden automatisch toegepast bij herstart (`--apply-migrations` staat in de systemd unit):
 
 ```bash
 ssh root@91.99.141.133 "systemctl restart rooster-staging"
-```
-
-### Migratie uitvoeren op productie (na goedkeuring)
-
-```bash
-ssh root@91.99.141.133 "systemctl stop rooster-server"
-ssh root@91.99.141.133 "cd /opt/rooster_server && dart bin/main.dart --mode production --apply-migrations &"
-# Wacht tot migraties klaar zijn, dan:
-ssh root@91.99.141.133 "systemctl start rooster-server"
 ```
 
 ---
 
 ## Promotie staging → productie
 
-### Code promoveren
+### Stap 1: Backup productie (altijd doen!)
 
 ```bash
-# Server is al op de VPS (zelfde map /opt/rooster_server)
-# Alleen de mode verschilt. Herstart productie:
+# Backup web build
+ssh root@91.99.141.133 "cp -r /var/www/roosterapp /var/www/roosterapp_backup_$(date +%Y%m%d)"
+
+# Backup database (bij schema-wijzigingen)
+ssh root@91.99.141.133 "sudo -u postgres pg_dump roosterapp > /root/roosterapp_backup_$(date +%Y%m%d).sql"
+```
+
+### Stap 2: Flutter web bouwen en deployen naar productie
+
+```bash
+flutter build web
+scp -r build/web/* root@91.99.141.133:/var/www/roosterapp/
+```
+
+### Stap 3: Server code deployen (als server-code gewijzigd)
+
+```bash
+scp -r /Users/hansvandebraak/IdeaProjects/rooster/rooster_server/* root@91.99.141.133:/opt/rooster_server/
 ssh root@91.99.141.133 "systemctl restart rooster-server"
 ```
 
-### Flutter web build deployen naar productie
+### Stap 4: Database migraties op productie (alleen bij schema-wijzigingen)
 
 ```bash
-# Build productie versie
-flutter build web
+ssh root@91.99.141.133 "systemctl stop rooster-server"
+ssh root@91.99.141.133 "cd /opt/rooster_server && dart bin/main.dart --mode production --apply-migrations &"
+# Wacht tot migraties klaar zijn (check logs), dan:
+ssh root@91.99.141.133 "systemctl start rooster-server"
+```
 
-# Kopieer naar VPS
-scp -r build/web/* root@91.99.141.133:/var/www/roosterapp/
+---
+
+## Rollback productie
+
+### Web app rollback (direct, seconden)
+
+```bash
+ssh root@91.99.141.133 "rm -rf /var/www/roosterapp && cp -r /var/www/roosterapp_backup_YYYYMMDD /var/www/roosterapp"
+```
+
+### Server code rollback (via git)
+
+```bash
+# Bekijk versies
+ssh root@91.99.141.133 "cd /opt/rooster_server && git log --oneline -5"
+
+# Terug naar vorige versie
+ssh root@91.99.141.133 "cd /opt/rooster_server && git checkout <commit-hash>"
+ssh root@91.99.141.133 "systemctl restart rooster-server"
+```
+
+### Database rollback
+
+```bash
+# Herstel database uit backup
+ssh root@91.99.141.133 "systemctl stop rooster-server"
+ssh root@91.99.141.133 "sudo -u postgres psql -c 'DROP DATABASE roosterapp;'"
+ssh root@91.99.141.133 "sudo -u postgres psql -c 'CREATE DATABASE roosterapp OWNER roosterapp;'"
+ssh root@91.99.141.133 "sudo -u postgres psql roosterapp < /root/roosterapp_backup_YYYYMMDD.sql"
+ssh root@91.99.141.133 "systemctl start rooster-server"
+```
+
+### Rollback staging
+
+```bash
+ssh root@91.99.141.133 "systemctl restart rooster-staging"
+# Of web build herstellen:
+ssh root@91.99.141.133 "rm -rf /var/www/roosterapp_staging/*"
+# En opnieuw deployen met vorige build
 ```
 
 ---
@@ -104,28 +130,19 @@ scp -r build/web/* root@91.99.141.133:/var/www/roosterapp/
 ## Handige SSH commando's
 
 ```bash
-# Status services
+# Status beide services
 ssh root@91.99.141.133 "systemctl status rooster-server rooster-staging"
 
-# Staging herstarten
-ssh root@91.99.141.133 "systemctl restart rooster-staging"
-
-# Productie herstarten
-ssh root@91.99.141.133 "systemctl restart rooster-server"
-
-# Live staging logs
+# Live logs
+ssh root@91.99.141.133 "tail -f /var/log/rooster_server.log"
 ssh root@91.99.141.133 "tail -f /var/log/rooster_staging.log"
 
-# Live productie logs
-ssh root@91.99.141.133 "tail -f /var/log/rooster_server.log"
-```
+# Herstart services
+ssh root@91.99.141.133 "systemctl restart rooster-server"
+ssh root@91.99.141.133 "systemctl restart rooster-staging"
 
----
-
-## Staging service autostart inschakelen (optioneel)
-
-```bash
-ssh root@91.99.141.133 "systemctl enable rooster-staging"
+# Beschikbare DB backups
+ssh root@91.99.141.133 "ls -lh /root/roosterapp_backup*"
 ```
 
 ---
