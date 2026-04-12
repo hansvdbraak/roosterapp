@@ -57,6 +57,46 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
 
+    // Coordinator: keuze tussen zelf boeken of toewijzen aan gebruiker
+    if (authProvider.isCoordinator) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Slot beheren'),
+          content: Text('${widget.room.name} op ${slot.getDisplayTime()}'),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, 'self'),
+                    child: const Text('Boek voor mezelf'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, 'assign'),
+                    child: const Text('Wijs toe aan gebruiker'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, null),
+                    child: const Text('Annuleren'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      if (action == null || !mounted) return;
+      if (action == 'assign') {
+        await _assignUserToSlot(slot);
+        return;
+      }
+    }
+
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -138,51 +178,168 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
 
-    final confirm = await showDialog<bool>(
+    // Coordinator die iemand anders zijn slot wist: extra opties
+    String? action;
+    if (authProvider.isCoordinator && reservation.bookerName != authProvider.userName) {
+      action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Reservering beheren'),
+          content: Text('Reservering van ${reservation.bookerName}'),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, 'cancel'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('Wis reservering'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, 'reassign'),
+                    child: const Text('Wijs toe aan andere gebruiker'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, null),
+                    child: const Text('Terug'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      if (action == null || !mounted) return;
+    } else {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Bevestig Annulering'),
+          content: Text(
+            'Wil je de reservering van ${reservation.bookerName} annuleren?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Terug'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Annuleren'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      action = 'cancel';
+    }
+
+    try {
+      await reservationProvider.cancelReservation(
+        reservationId: reservation.id,
+        userName: authProvider.userName,
+        isSuperuser: authProvider.isCoordinator,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reservering geannuleerd'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Na annulering: toewijzen aan andere gebruiker
+    if (action == 'reassign' && mounted) {
+      final slot = TimeSlot(date: _selectedDate, slotIndex: reservation.slotIndex);
+      await _assignUserToSlot(slot);
+    }
+  }
+
+  /// Coordinator: wijs een slot toe aan een ambassadeur
+  Future<void> _assignUserToSlot(TimeSlot slot) async {
+    final authProvider = context.read<AuthProvider>();
+    final reservationProvider = context.read<ReservationProvider>();
+
+    final simpleUsers = authProvider.allUsers
+        .where((u) => u.role == UserRole.gebruikerEenvoud)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (simpleUsers.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Geen ambassadeurs gevonden')),
+        );
+      }
+      return;
+    }
+
+    final selectedUser = await showDialog<User>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bevestig Annulering'),
-        content: Text(
-          'Wil je de reservering van ${reservation.bookerName} annuleren?',
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wijs toe aan gebruiker'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: simpleUsers.length,
+            itemBuilder: (_, i) => ListTile(
+              title: Text(simpleUsers[i].name),
+              onTap: () => Navigator.pop(ctx, simpleUsers[i]),
+            ),
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Terug'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuleren'),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
-      try {
-        await reservationProvider.cancelReservation(
-          reservationId: reservation.id,
-          userName: authProvider.userName,
-          isSuperuser: authProvider.isSuperuser,
+    if (selectedUser == null || !mounted) return;
+
+    try {
+      await reservationProvider.createReservation(
+        roomId: widget.room.id,
+        bookerName: selectedUser.name,
+        date: _selectedDate,
+        slotIndex: slot.slotIndex,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Slot toegewezen aan ${selectedUser.name}'),
+            backgroundColor: Colors.green,
+          ),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reservering geannuleerd'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -567,7 +724,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 
-  /// Dagdeel weergave voor standaard gebruikers - 2 weken tabel gegroepeerd per week
+  /// Dagdeel weergave voor ambassadeurs - 2 weken tabel gegroepeerd per week
   Widget _buildDayPartView(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
@@ -817,7 +974,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
 
               final isAvailable = reservation == null;
               final isOwnReservation = reservation?.bookerName == authProvider.userName;
-              final canCancel = isOwnReservation || authProvider.isSuperuser;
+              final canCancel = isOwnReservation || authProvider.isCoordinator;
               final isPast = slot.startTime.isBefore(now);
 
               return _SlotTile(

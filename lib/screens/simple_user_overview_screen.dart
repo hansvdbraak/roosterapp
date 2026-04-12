@@ -150,7 +150,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
   Widget build(BuildContext context) {
     if (!_isInitialized) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Standaard gebruikers')),
+        appBar: AppBar(title: const Text('Ambassadeurs')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -158,7 +158,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_selectedUser == null
-            ? 'Standaard gebruikers'
+            ? 'Ambassadeurs'
             : _selectedUser!.name),
         leading: _selectedUser != null
             ? IconButton(
@@ -184,7 +184,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
   Widget _buildUserList() {
     final authProvider = context.watch<AuthProvider>();
 
-    // Filter alleen eenvoudige gebruikers
+    // Filter alleen ambassadeurs
     final simpleUsers = authProvider.allUsers
         .where((u) => u.role == UserRole.gebruikerEenvoud)
         .toList();
@@ -209,7 +209,7 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
             Icon(Icons.person_off, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Geen standaard gebruikers',
+              'Geen ambassadeurs',
               style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
           ],

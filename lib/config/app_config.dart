@@ -66,8 +66,8 @@ class AppConfig {
   /// Staging server
   static const ServerConfig staging = ServerConfig(
     host: 'staging.4ub2b.com',
-    port: 8090,
-    useHttps: false,
+    port: 443,
+    useHttps: true,
   );
 
   /// Productie

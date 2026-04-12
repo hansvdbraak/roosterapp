@@ -9,7 +9,7 @@ extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
       case UserRole.gebruikerEenvoud:
-        return 'Standaard gebruiker';
+        return 'Ambassadeur';
       case UserRole.gebruiker:
         return 'Gebruiker';
       case UserRole.coordinator:
@@ -67,7 +67,7 @@ extension UserRoleExtension on UserRole {
   }
 }
 
-/// Dagdeel voor eenvoudige gebruikers
+/// Dagdeel voor ambassadeurs
 enum DayPart {
   ochtend,  // 10:00 - 13:00
   middag,   // 13:00 - 16:00

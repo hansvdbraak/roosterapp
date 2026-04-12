@@ -264,7 +264,7 @@ class _UserCard extends StatelessWidget {
           children: [
             Icon(Icons.person_outline, size: 20),
             SizedBox(width: 8),
-            Text('Terugzetten naar standaard gebruiker'),
+            Text('Terugzetten naar ambassadeur'),
           ],
         ),
       ));
@@ -288,7 +288,7 @@ class _UserCard extends StatelessWidget {
             children: [
               Icon(Icons.person_outline, size: 20),
               SizedBox(width: 8),
-              Text('Maak standaard gebruiker'),
+              Text('Maak ambassadeur'),
             ],
           ),
         ));

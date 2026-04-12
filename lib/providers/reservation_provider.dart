@@ -156,7 +156,7 @@ class ReservationProvider extends ChangeNotifier {
     );
   }
 
-  /// Boek een volledig dagdeel (voor eenvoudige gebruikers)
+  /// Boek een volledig dagdeel (voor ambassadeurs)
   Future<List<Reservation>> createDayPartReservation({
     required int roomId,
     required String bookerName,

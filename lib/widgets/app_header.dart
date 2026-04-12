@@ -167,7 +167,7 @@ class AppHeaderActions extends StatelessWidget {
                 ),
               ),
 
-            // Eenvoudige gebruikers overzicht (voor coördinatoren en superuser)
+            // Ambassadeurs overzicht (voor coördinatoren en superuser)
             if (authProvider.isCoordinator)
               const PopupMenuItem(
                 value: 'user_overview',
@@ -175,7 +175,7 @@ class AppHeaderActions extends StatelessWidget {
                   children: [
                     Icon(Icons.people_outline),
                     SizedBox(width: 8),
-                    Text('Standaard gebruikers'),
+                    Text('Ambassadeurs'),
                   ],
                 ),
               ),

@@ -189,7 +189,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList()
                   ..sort((a, b) => a.name.compareTo(b.name));
 
-                // Standaard gebruikers zien alleen Trefpunt Ambassadeurs en Trefpunt Aquarium
+                // Ambassadeurs zien alleen Trefpunt Ambassadeurs en Trefpunt Aquarium
                 final visibleRooms = isStandaardGebruiker
                     ? activeRooms
                         .where((r) =>
@@ -261,8 +261,8 @@ class _RoomListScreenState extends State<RoomListScreen> {
           const SizedBox(height: 16),
           _CoordinatorActionCard(
             icon: Icons.people_outline,
-            title: 'Standaard gebruikers',
-            subtitle: 'Bekijk overzicht van standaard gebruikers',
+            title: 'Ambassadeurs',
+            subtitle: 'Bekijk overzicht van ambassadeurs',
             color: Colors.teal,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SimpleUserOverviewScreen()),
