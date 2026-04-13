@@ -6,7 +6,6 @@ import '../models/user.dart';
 import '../screens/welcome_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/user_management_screen.dart';
-import '../screens/coordinator_dashboard_screen.dart';
 import '../screens/simple_user_overview_screen.dart';
 
 /// Reusable app bar actions met datum en profiel menu
@@ -96,11 +95,6 @@ class AppHeaderActions extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const UserManagementScreen()),
                 );
                 break;
-              case 'dashboard':
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CoordinatorDashboardScreen()),
-                );
-                break;
               case 'user_overview':
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const SimpleUserOverviewScreen()),
@@ -153,19 +147,6 @@ class AppHeaderActions extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Coördinator dashboard (voor coördinatoren en superuser)
-            if (authProvider.isCoordinator)
-              const PopupMenuItem(
-                value: 'dashboard',
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics),
-                    SizedBox(width: 8),
-                    Text('Bezettingsoverzicht'),
-                  ],
-                ),
-              ),
 
             // Ambassadeurs overzicht (voor coördinatoren en superuser)
             if (authProvider.isCoordinator)
