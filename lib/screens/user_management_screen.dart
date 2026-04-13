@@ -35,8 +35,14 @@ class UserManagementScreen extends StatelessWidget {
       ),
       body: users.isEmpty
           ? const Center(child: Text('Geen gebruikers gevonden'))
-          : ListView.builder(
+          : GridView.builder(
               padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.6,
+              ),
               itemCount: users.length,
               itemBuilder: (context, index) {
                 final user = users[index];
@@ -95,7 +101,7 @@ class _UserCard extends StatelessWidget {
     final canChangeRole = isSuperuser && !isCurrentUser && user.name != 'Admin';
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.zero,
       child: InkWell(
         onTap: isSuperuser ? () => _showUserDetails(context) : null,
         borderRadius: BorderRadius.circular(12),
