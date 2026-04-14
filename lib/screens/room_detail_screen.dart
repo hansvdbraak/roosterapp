@@ -1288,7 +1288,7 @@ class _DayPartCell extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: tappable ? (canBook ? onBook : onCancel) : null,
+          onTap: tappable ? (status.isFullyAvailable ? onBook : canCancel ? onCancel : null) : null,
           borderRadius: BorderRadius.circular(8),
           splashColor: Colors.white24,
           child: Padding(
