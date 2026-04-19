@@ -1143,6 +1143,12 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               final capturedStatus = status;
               final capturedOtherName = otherBookerName;
               coordinatorTap = () {
+                debugPrint('TAP dagdeel ${dayPart.displayName} ${date.toIso8601String()}: '
+                    'isFullyAvailable=${capturedStatus.isFullyAvailable} '
+                    'hasAnyBookings=${capturedStatus.hasAnyBookings} '
+                    'bookedByUser=${capturedStatus.bookedByUser} '
+                    'bookedByOthers=${capturedStatus.bookedByOthers} '
+                    'otherName=$capturedOtherName');
                 if (capturedStatus.isFullyAvailable) {
                   _bookDayPartAsCoordinator(dayPart, date);
                 } else if (capturedStatus.hasAnyBookings) {
