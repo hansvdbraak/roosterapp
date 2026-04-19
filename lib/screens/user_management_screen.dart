@@ -14,17 +14,7 @@ class UserManagementScreen extends StatelessWidget {
     final users = authProvider.allUsers
         .where((u) => u.name != 'Admin')
         .toList()
-      ..sort((a, b) {
-        const roleOrder = {
-          UserRole.superuser: 0,
-          UserRole.coordinator: 1,
-          UserRole.gebruiker: 2,
-          UserRole.gebruikerEenvoud: 3,
-        };
-        final roleCmp = (roleOrder[a.role] ?? 9).compareTo(roleOrder[b.role] ?? 9);
-        if (roleCmp != 0) return roleCmp;
-        return a.name.compareTo(b.name);
-      });
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final currentSession = authProvider.currentSession;
     final isSuperuser = currentSession?.isSuperuser ?? false;
 
