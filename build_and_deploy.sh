@@ -9,9 +9,11 @@ echo "Step 1: Incrementing version..."
 ./increment_version.sh
 echo ""
 
-# Step 2: Build Flutter web
+# Step 2: Build Flutter web (productie gebruikt kalender-favicon)
 echo "Step 2: Building Flutter web..."
+cp web/favicon_calendar.png web/favicon.png
 flutter build web --release
+cp web/favicon_flutter.png web/favicon.png  # herstel default voor staging
 if [ $? -ne 0 ]; then
     echo "Error: Flutter build failed!"
     exit 1
