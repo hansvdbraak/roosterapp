@@ -388,26 +388,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Registreer knop
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                Center(
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Registreer knop
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _register,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Registreren'),
+                        ),
+                        const SizedBox(height: 16),
+                        // Terug naar login
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Al een account? Log in'),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Registreren'),
-                ),
-                const SizedBox(height: 16),
-
-                // Terug naar login
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Al een account? Log in'),
                 ),
               ],
             ),

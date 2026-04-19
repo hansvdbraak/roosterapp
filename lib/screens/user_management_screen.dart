@@ -449,14 +449,23 @@ class _UserCard extends StatelessWidget {
             ],
           ],
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuleren'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Wijzigen'),
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Wijzigen'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Annuleren'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -494,14 +503,23 @@ class _UserCard extends StatelessWidget {
           maxLines: 3,
           autofocus: true,
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuleren'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Opslaan'),
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, controller.text),
+                  child: const Text('Opslaan'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuleren'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -531,15 +549,24 @@ class _UserCard extends StatelessWidget {
         content: Text(
           'Weet je zeker dat je ${user.name} wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuleren'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Verwijderen'),
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Verwijderen'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Annuleren'),
+                ),
+              ],
+            ),
           ),
         ],
       ),

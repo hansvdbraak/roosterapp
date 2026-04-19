@@ -483,77 +483,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Opslaan knop
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Opslaan'),
-                ),
-                const SizedBox(height: 16),
-
-                // Annuleren knop
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Annuleren'),
-                ),
-
-                // Versielogboek knop (alleen voor Admin)
-                if (authProvider.userName == 'Admin') ...[
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ChangelogScreen(),
+                Center(
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Opslaan knop
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Opslaan'),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.history),
-                    label: const Text('Versielogboek'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                        const SizedBox(height: 16),
+                        // Annuleren knop
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          ),
+                          child: const Text('Annuleren'),
+                        ),
+                        // Versielogboek knop (alleen voor Admin)
+                        if (authProvider.userName == 'Admin') ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ChangelogScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.history),
+                            label: const Text('Versielogboek'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
+                            ),
+                          ),
+                        ],
+                        // CSV export knop (voor coordinator en superuser)
+                        if (authProvider.isCoordinator) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: _isExporting ? null : _exportCSV,
+                            icon: _isExporting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.download),
+                            label: Text(_isExporting
+                                ? 'Exporteren...'
+                                : 'Exporteer reserveringen (CSV)'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ],
-
-                // CSV export knop (voor coordinator en superuser)
-                if (authProvider.isCoordinator) ...[
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isExporting ? null : _exportCSV,
-                      icon: _isExporting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download),
-                      label: Text(_isExporting
-                          ? 'Exporteren...'
-                          : 'Exporteer reserveringen (CSV)'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
           ),

@@ -226,24 +226,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
 
-          ElevatedButton(
-            onPressed: _isLoading ? null : _verifyPhone,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+          Center(
+            child: IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _verifyPhone,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Controleren'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Terug naar inloggen'),
+                  ),
+                ],
+              ),
             ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Controleren'),
-          ),
-          const SizedBox(height: 16),
-
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Terug naar inloggen'),
           ),
         ],
       ),
@@ -343,18 +351,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
 
-          ElevatedButton(
-            onPressed: _isLoading ? null : _resetPassword,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+          Center(
+            child: IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _resetPassword,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Wachtwoord opslaan'),
+                  ),
+                ],
+              ),
             ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Wachtwoord opslaan'),
           ),
         ],
       ),

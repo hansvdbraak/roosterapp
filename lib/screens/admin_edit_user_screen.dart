@@ -431,29 +431,37 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Opslaan knop
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                Center(
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Opslaan knop
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Opslaan'),
+                        ),
+                        const SizedBox(height: 16),
+                        // Annuleren knop
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          ),
+                          child: const Text('Annuleren'),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Opslaan'),
-                ),
-                const SizedBox(height: 16),
-
-                // Annuleren knop
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Annuleren'),
                 ),
                   ],
                 ),

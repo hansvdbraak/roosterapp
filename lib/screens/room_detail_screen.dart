@@ -186,8 +186,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       action = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Reservering beheren'),
-          content: Text('Reservering van ${reservation.bookerName}'),
+          title: Text('Reservering van ${reservation.bookerName}'),
+          content: Text(widget.room.name),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             IntrinsicWidth(
@@ -197,17 +197,12 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, 'cancel'),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    child: const Text('Wis reservering'),
+                    child: const Text('Wissen'),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context, 'reassign'),
-                    child: const Text('Wijs toe aan andere gebruiker'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, null),
-                    child: const Text('Terug'),
+                    child: const Text('Andere gebruiker toewijzen'),
                   ),
                 ],
               ),
@@ -496,6 +491,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, 'self'),
+                  child: const Text('Boek voor mezelf'),
+                ),
+                const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context, 'assign'),
                   child: const Text('Wijs toe aan ambassadeur'),
@@ -512,18 +512,24 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       ),
     );
     if (action == null || !mounted) return;
-    await _assignUserToDayPart(dayPart, date);
+    if (action == 'assign') {
+      await _assignUserToDayPart(dayPart, date);
+      return;
+    }
+    // Boek voor mezelf
+    await _bookDayPart(dayPart, date);
   }
 
   /// Coordinator: bezet dagdeel wissen of wissen + opnieuw toewijzen
   Future<void> _cancelDayPartAsCoordinator(DayPart dayPart, DateTime date, String bookerName) async {
+    final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
 
     final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Dagdeel beheren'),
-        content: Text('${dayPart.displayName} geboekt door $bookerName'),
+        title: Text('Reservering van $bookerName'),
+        content: Text('${dayPart.displayName} (${dayPart.timeRange})'),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           IntrinsicWidth(
@@ -533,17 +539,12 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, 'cancel'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Wis reservering'),
+                  child: const Text('Wissen'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context, 'reassign'),
-                  child: const Text('Wijs toe aan andere ambassadeur'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text('Terug'),
+                  child: const Text('Andere gebruiker toewijzen'),
                 ),
               ],
             ),
@@ -559,7 +560,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
         date: date,
         dayPart: dayPart,
         userName: bookerName,
-        isSuperuser: true,
+        isSuperuser: authProvider.isCoordinator,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -907,7 +908,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final reservationProvider = context.watch<ReservationProvider>();
     final now = DateTime.now();
     final today = DateTime.utc(now.year, now.month, now.day);
-    final canGoBack = _dayPartWeekStart.isAfter(today);
+    // Coordinators mogen ook weken terugkijken
+    final canGoBack = authProvider.isCoordinator || _dayPartWeekStart.isAfter(today);
     final week2Start = _dayPartWeekStart.add(const Duration(days: 7));
 
     // ISO 8601 weeknummer berekening
@@ -1109,8 +1111,33 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 (status.bookedByUser > 0 ||
                     (authProvider.isCoordinator && status.hasAnyBookings));
 
-            // Naam van andere boeker zit al in status (vanuit dezelfde cache-loop)
+            // Naam van boeker voor cel-label (andere boeker of eigen naam)
             final otherBookerName = status.firstOtherBookerName;
+
+            // Coordinator bezetting: bereken onTap direct — geen conditielogica in de cel
+            // isCoordinatorManage: enkel voor bezetting-bekijken (visuele weergave verleden)
+            final bool isCoordinatorManage =
+                authProvider.isCoordinator && widget.forceDayPartView;
+            // coordinatorTap: herbereken status OP HET MOMENT VAN TIKKEN
+            // (niet op build-tijd) zodat cache-misses geen stale actie geven
+            VoidCallback? coordinatorTap;
+            if (authProvider.isCoordinator && !isPast) {
+              coordinatorTap = () {
+                final liveStatus = reservationProvider.getDayPartStatus(
+                  widget.room.id,
+                  date,
+                  dayPart,
+                  authProvider.userName,
+                );
+                final liveOther = liveStatus.firstOtherBookerName;
+                final liveName = liveOther ?? authProvider.userName;
+                if (liveStatus.isFullyAvailable) {
+                  _bookDayPartAsCoordinator(dayPart, date);
+                } else if (liveStatus.hasAnyBookings) {
+                  _cancelDayPartAsCoordinator(dayPart, date, liveName);
+                }
+              };
+            }
 
             return Expanded(
               child: _DayPartCell(
@@ -1118,14 +1145,12 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 isPast: isPast,
                 canBook: canBook,
                 canCancel: canCancel,
+                isCoordinatorManage: isCoordinatorManage,
+                coordinatorTap: coordinatorTap,
                 ownName: authProvider.userName,
                 otherBookerName: otherBookerName,
-                onBook: () => authProvider.isCoordinator
-                    ? _bookDayPartAsCoordinator(dayPart, date)
-                    : _bookDayPart(dayPart, date),
-                onCancel: () => authProvider.isCoordinator && otherBookerName != null
-                    ? _cancelDayPartAsCoordinator(dayPart, date, otherBookerName)
-                    : _cancelDayPart(dayPart, date),
+                onBook: () => _bookDayPart(dayPart, date),
+                onCancel: () => _cancelDayPart(dayPart, date),
               ),
             );
           }),
@@ -1238,6 +1263,8 @@ class _DayPartCell extends StatelessWidget {
   final bool isPast;
   final bool canBook;
   final bool canCancel;
+  final bool isCoordinatorManage;
+  final VoidCallback? coordinatorTap;
   final String? ownName;
   final String? otherBookerName;
   final VoidCallback onBook;
@@ -1250,6 +1277,8 @@ class _DayPartCell extends StatelessWidget {
     required this.canCancel,
     required this.onBook,
     required this.onCancel,
+    this.isCoordinatorManage = false,
+    this.coordinatorTap,
     this.ownName,
     this.otherBookerName,
   });
@@ -1259,24 +1288,30 @@ class _DayPartCell extends StatelessWidget {
     Color bgColor;
     String label;
 
-    if (isPast) {
+    // Coordinator bezetting terugkijken: verleden cellen tonen naam/Vrij in zwart op grijs
+    final showPastInfo = isCoordinatorManage && isPast;
+
+    if (isPast && !showPastInfo) {
       bgColor = const Color(0xFFDDDDDD);
       label = '';
     } else if (status.isFullyAvailable) {
-      bgColor = const Color(0xFFFF2800); // Ferrari rood = vrij
+      bgColor = showPastInfo ? const Color(0xFFDDDDDD) : const Color(0xFFFF2800);
       label = 'Vrij';
     } else if (status.bookedByOthers > 0) {
-      bgColor = const Color(0xFF4CBB17); // kikkergroen = bezet door ander
+      bgColor = showPastInfo ? const Color(0xFFDDDDDD) : const Color(0xFF4CBB17);
       label = otherBookerName ?? 'Bezet';
     } else if (status.bookedByUser > 0) {
-      bgColor = const Color(0xFF1565C0); // blauw = eigen boeking
+      bgColor = showPastInfo ? const Color(0xFFDDDDDD) : const Color(0xFF1565C0);
       label = ownName ?? 'Jij';
     } else {
       bgColor = const Color(0xFFDDDDDD);
       label = '';
     }
 
-    final tappable = !isPast && (canBook || canCancel);
+    // Verleden cellen zijn nooit aanklikbaar (ook niet voor coordinators)
+    final tappable = !isPast && (isCoordinatorManage
+        ? (status.hasAnyBookings || status.isFullyAvailable)
+        : (canBook || canCancel));
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
@@ -1288,7 +1323,14 @@ class _DayPartCell extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: tappable ? (status.isFullyAvailable ? onBook : canCancel ? onCancel : null) : null,
+          onTap: coordinatorTap ??
+              (!tappable
+                  ? null
+                  : status.isFullyAvailable
+                      ? onBook
+                      : canCancel
+                          ? onCancel
+                          : null),
           borderRadius: BorderRadius.circular(8),
           splashColor: Colors.white24,
           child: Padding(
@@ -1298,9 +1340,9 @@ class _DayPartCell extends StatelessWidget {
                   ? const SizedBox.shrink()
                   : Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white,
+                        color: showPastInfo ? Colors.black87 : Colors.white,
                         fontWeight: FontWeight.w900,
                       ),
                       textAlign: TextAlign.center,
