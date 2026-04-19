@@ -11,7 +11,9 @@ class UserManagementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final users = authProvider.allUsers.toList()
+    final users = authProvider.allUsers
+        .where((u) => u.name != 'Admin')
+        .toList()
       ..sort((a, b) {
         const roleOrder = {
           UserRole.superuser: 0,
@@ -35,23 +37,19 @@ class UserManagementScreen extends StatelessWidget {
       ),
       body: users.isEmpty
           ? const Center(child: Text('Geen gebruikers gevonden'))
-          : GridView.builder(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.6,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: users.map((user) => IntrinsicWidth(
+                  child: _UserCard(
+                    user: user,
+                    isSuperuser: isSuperuser,
+                    isCurrentUser: authProvider.currentUser?.id == user.id,
+                  ),
+                )).toList(),
               ),
-              itemCount: users.length,
-              itemBuilder: (context, index) {
-                final user = users[index];
-                return _UserCard(
-                  user: user,
-                  isSuperuser: isSuperuser,
-                  isCurrentUser: authProvider.currentUser?.id == user.id,
-                );
-              },
             ),
     );
   }
@@ -106,102 +104,87 @@ class _UserCard extends StatelessWidget {
         onTap: isSuperuser ? () => _showUserDetails(context) : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   CircleAvatar(
+                    radius: 18,
                     backgroundColor: roleColor.withAlpha((255 * 0.2).round()),
-                    child: Icon(_getRoleIcon(user.role), color: roleColor),
+                    child: Icon(_getRoleIcon(user.role), color: roleColor, size: 18),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                user.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            user.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          if (isCurrentUser) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withAlpha((255 * 0.2).round()),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Text(
+                                'Jij',
+                                style: TextStyle(fontSize: 11, color: Colors.green),
                               ),
                             ),
-                            if (isCurrentUser)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withAlpha((255 * 0.2).round()),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Jij',
-                                  style: TextStyle(fontSize: 12, color: Colors.green),
-                                ),
-                              ),
                           ],
-                        ),
-                        Text(
-                          user.email,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                      Text(
+                        user.email,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
                   ),
-                  canEditProfile
-                      ? PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert),
-                          onSelected: (value) => _handleAction(context, value),
-                          itemBuilder: (context) => _buildMenuItems(canChangeRole: canChangeRole),
-                        )
-                      : (isSuperuser
-                          ? Icon(Icons.chevron_right, color: Colors.grey[400])
-                          : const SizedBox()),
+                  const SizedBox(width: 4),
+                  if (canEditProfile)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, size: 18),
+                      onSelected: (value) => _handleAction(context, value),
+                      itemBuilder: (context) => _buildMenuItems(canChangeRole: canChangeRole),
+                    )
+                  else if (isSuperuser)
+                    Icon(Icons.chevron_right, color: Colors.grey[400], size: 18),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: roleColor.withAlpha((255 * 0.1).round()),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: roleColor.withAlpha((255 * 0.3).round())),
                     ),
                     child: Text(
                       user.role.displayName,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: roleColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                   if (user.comment != null && user.comment!.isNotEmpty && isSuperuser) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(Icons.comment, size: 14, color: Colors.grey[500]),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              user.comment!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    const SizedBox(width: 6),
+                    Icon(Icons.comment, size: 13, color: Colors.grey[500]),
                   ],
                 ],
               ),
