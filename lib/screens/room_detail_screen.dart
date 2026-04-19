@@ -1136,27 +1136,18 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             // isCoordinatorManage: enkel voor bezetting-bekijken (visuele weergave verleden)
             final bool isCoordinatorManage =
                 authProvider.isCoordinator && widget.forceDayPartView;
-            // coordinatorTap: force-reload de bezetting van de server en
-            // kies dan de juiste actie zodat cache-misses nooit een stale
-            // "vrij"-dialog geven voor een bezet dagdeel.
+            // coordinatorTap: gebruik de build-time status direct — de cel
+            // toont al de juiste bezetting, dus de tap moet daarmee in sync zijn.
             VoidCallback? coordinatorTap;
             if (authProvider.isCoordinator && !isPast) {
-              coordinatorTap = () async {
-                // Haal verse data op voordat we de actie bepalen
-                await reservationProvider.loadReservations(widget.room.id, date);
-                if (!mounted) return;
-                final liveStatus = reservationProvider.getDayPartStatus(
-                  widget.room.id,
-                  date,
-                  dayPart,
-                  authProvider.userName,
-                );
-                final liveOther = liveStatus.firstOtherBookerName;
-                final liveName = liveOther ?? authProvider.userName;
-                if (liveStatus.isFullyAvailable) {
+              final capturedStatus = status;
+              final capturedOtherName = otherBookerName;
+              coordinatorTap = () {
+                if (capturedStatus.isFullyAvailable) {
                   _bookDayPartAsCoordinator(dayPart, date);
-                } else if (liveStatus.hasAnyBookings) {
-                  _cancelDayPartAsCoordinator(dayPart, date, liveName);
+                } else if (capturedStatus.hasAnyBookings) {
+                  final bookerName = capturedOtherName ?? authProvider.userName;
+                  _cancelDayPartAsCoordinator(dayPart, date, bookerName);
                 }
               };
             }
