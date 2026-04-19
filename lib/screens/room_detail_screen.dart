@@ -1143,16 +1143,6 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               final capturedStatus = status;
               final capturedOtherName = otherBookerName;
               coordinatorTap = () {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(
-                    'TAP: vrij=${capturedStatus.isFullyAvailable} '
-                    'bezet=${capturedStatus.hasAnyBookings} '
-                    'user=${capturedStatus.bookedByUser} '
-                    'ander=${capturedStatus.bookedByOthers} '
-                    'naam=$capturedOtherName',
-                  ),
-                  duration: const Duration(seconds: 6),
-                ));
                 if (capturedStatus.isFullyAvailable) {
                   _bookDayPartAsCoordinator(dayPart, date);
                 } else if (capturedStatus.hasAnyBookings) {
