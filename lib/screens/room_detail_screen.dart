@@ -972,8 +972,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             children: [
               OutlinedButton.icon(
                 onPressed: canGoBack
-                    ? () => setState(() => _dayPartWeekStart = DateTime.utc(
-                        _dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day - 7))
+                    ? () {
+                        setState(() => _dayPartWeekStart = DateTime.utc(
+                            _dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day - 7));
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+                      }
                     : null,
                 icon: const Icon(Icons.chevron_left, size: 18),
                 label: const Text('Vorige week', style: TextStyle(fontSize: 13)),
@@ -986,14 +989,28 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Week ${isoWeekNumber(_dayPartWeekStart)} – ${isoWeekNumber(week2Start)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                child: GestureDetector(
+                  onTap: authProvider.isCoordinator
+                      ? () {
+                          final now = DateTime.now();
+                          final today = DateTime.utc(now.year, now.month, now.day);
+                          setState(() => _dayPartWeekStart =
+                              today.subtract(Duration(days: today.weekday - 1)));
+                          WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+                        }
+                      : null,
+                  child: Text(
+                    'Week ${isoWeekNumber(_dayPartWeekStart)} – ${isoWeekNumber(week2Start)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () => setState(() => _dayPartWeekStart = DateTime.utc(
-                    _dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day + 7)),
+                onPressed: () {
+                  setState(() => _dayPartWeekStart = DateTime.utc(
+                      _dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day + 7));
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+                },
                 icon: const Icon(Icons.chevron_right, size: 18),
                 label: const Text('Volgende week', style: TextStyle(fontSize: 13)),
                 iconAlignment: IconAlignment.end,
