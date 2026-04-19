@@ -39,6 +39,24 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final today = DateTime.utc(now.year, now.month, now.day);
     // Snap naar maandag van de huidige week (weekday: 1=ma, 7=zo)
     _dayPartWeekStart = today.subtract(Duration(days: today.weekday - 1));
+    // Preload reserveringen voor alle zichtbare dagdeel-datums
+    WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+  }
+
+  /// Laad reserveringen proactief voor de 14 zichtbare dagen (2 weken) in dagdeel-modus.
+  void _preloadDayPartDates() {
+    if (!mounted) return;
+    final authProvider = context.read<AuthProvider>();
+    final canBookHalfHour = authProvider.currentSession?.canBookHalfHour ?? false;
+    final isDayPart = !canBookHalfHour || (authProvider.isCoordinator && widget.forceDayPartView);
+    if (!isDayPart || widget.room.isObsolete) return;
+    final reservationProvider = context.read<ReservationProvider>();
+    for (int i = 0; i < 14; i++) {
+      reservationProvider.loadReservations(
+        widget.room.id,
+        _dayPartWeekStart.add(Duration(days: i)),
+      );
+    }
   }
 
   void _previousDay() {
@@ -1118,11 +1136,15 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             // isCoordinatorManage: enkel voor bezetting-bekijken (visuele weergave verleden)
             final bool isCoordinatorManage =
                 authProvider.isCoordinator && widget.forceDayPartView;
-            // coordinatorTap: herbereken status OP HET MOMENT VAN TIKKEN
-            // (niet op build-tijd) zodat cache-misses geen stale actie geven
+            // coordinatorTap: force-reload de bezetting van de server en
+            // kies dan de juiste actie zodat cache-misses nooit een stale
+            // "vrij"-dialog geven voor een bezet dagdeel.
             VoidCallback? coordinatorTap;
             if (authProvider.isCoordinator && !isPast) {
-              coordinatorTap = () {
+              coordinatorTap = () async {
+                // Haal verse data op voordat we de actie bepalen
+                await reservationProvider.loadReservations(widget.room.id, date);
+                if (!mounted) return;
                 final liveStatus = reservationProvider.getDayPartStatus(
                   widget.room.id,
                   date,
