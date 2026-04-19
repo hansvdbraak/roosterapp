@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Kalenderblok achtergrond -->
+  <rect x="2" y="4" width="28" height="26" rx="3" ry="3" fill="#ffffff" stroke="#cccccc" stroke-width="1"/>
+  <!-- Rode header -->
+  <rect x="2" y="4" width="28" height="9" rx="3" ry="3" fill="#E53935"/>
+  <rect x="2" y="9" width="28" height="4" fill="#E53935"/>
+  <!-- Ringen boven -->
+  <rect x="9" y="2" width="3" height="6" rx="1.5" fill="#B71C1C"/>
+  <rect x="20" y="2" width="3" height="6" rx="1.5" fill="#B71C1C"/>
+  <!-- Getal 31 -->
+  <text x="16" y="25" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#1a1a1a" text-anchor="middle">31</text>
+</svg>
