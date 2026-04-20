@@ -415,7 +415,7 @@ dart pub global activate serverpod_cli
 - Rate limiting voor API calls
 
 **Te behandelen (client-side):**
-- Gebruikers kunnen alleen eigen reserveringen annuleren
+- Gebruikers kunnen alleen eigen reserveringen annulerenc
 - Admin kan alle reserveringen annuleren
 - Bevestig voor annuleren/boeken
 - Handle network errors gracefully (retry, offline message)
