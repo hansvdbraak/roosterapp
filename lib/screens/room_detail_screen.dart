@@ -683,8 +683,13 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
 
   bool get _allowsEveningBooking {
     final name = widget.room.name.toLowerCase();
-    return name.contains('trefpunt aquarium') || name.contains('de kuil in het gemeentehuis');
+    return name.contains('trefpunt aquarium') ||
+        name.contains('de kuil in het gemeentehuis') ||
+        name.contains('trefpunt ambassadeurs');
   }
+
+  bool get _isAmbassadeursWeekView =>
+      widget.room.name == 'Trefpunt Ambassadeurs';
 
   Future<void> _deleteRoom() async {
     final roomProvider = context.read<RoomProvider>();
@@ -782,11 +787,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       ),
       body: Column(
         children: [
-          // Room info & date navigation (voor iedereen behalve coordinator bezetting-modus)
-          if (!(authProvider.isCoordinator && widget.forceDayPartView)) _buildHeader(context),
+          // Room info & date navigation (niet voor week-dagdeel-modus)
+          if (!(authProvider.isCoordinator && widget.forceDayPartView) && !_isAmbassadeursWeekView) _buildHeader(context),
 
-          // Ruimteomschrijving alleen voor coordinator bezetting-modus
-          if ((authProvider.isCoordinator && widget.forceDayPartView) && !widget.room.isObsolete && widget.room.description != null)
+          // Ruimteomschrijving voor week-dagdeel-modus (coordinator bezetting + Trefpunt Ambassadeurs)
+          if (((authProvider.isCoordinator && widget.forceDayPartView) || _isAmbassadeursWeekView) && !widget.room.isObsolete && widget.room.description != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1002,8 +1007,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final now = DateTime.now();
     final today = DateTime.utc(now.year, now.month, now.day);
 
-    // Ambassadeurs: toon per-dag weergave
-    if (!authProvider.isCoordinator) {
+    // Ambassadeurs: per-dag weergave, behalve voor Trefpunt Ambassadeurs (altijd week)
+    if (!authProvider.isCoordinator && !_isAmbassadeursWeekView) {
       return _buildDayPartDayView(context);
     }
 
