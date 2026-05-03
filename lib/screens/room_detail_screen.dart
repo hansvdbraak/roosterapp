@@ -43,11 +43,15 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
   }
 
+  bool _effectiveCanBookHalfHour(bool canBookHalfHour) =>
+      canBookHalfHour || widget.room.name == 'Trefpunt Aquarium';
+
   /// Laad reserveringen proactief voor de 14 zichtbare dagen (2 weken) in dagdeel-modus.
   void _preloadDayPartDates() {
     if (!mounted) return;
     final authProvider = context.read<AuthProvider>();
-    final canBookHalfHour = authProvider.currentSession?.canBookHalfHour ?? false;
+    final canBookHalfHour = _effectiveCanBookHalfHour(
+        authProvider.currentSession?.canBookHalfHour ?? false);
     final isDayPart = !canBookHalfHour || (authProvider.isCoordinator && widget.forceDayPartView);
     if (!isDayPart || widget.room.isObsolete) return;
     final reservationProvider = context.read<ReservationProvider>();
@@ -734,7 +738,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final canBookHalfHour = authProvider.currentSession?.canBookHalfHour ?? false;
+    final canBookHalfHour = _effectiveCanBookHalfHour(
+        authProvider.currentSession?.canBookHalfHour ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -777,11 +782,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       ),
       body: Column(
         children: [
-          // Room info & date navigation (alleen voor slot-modus en overbodig)
-          if ((canBookHalfHour && !(authProvider.isCoordinator && widget.forceDayPartView)) || widget.room.isObsolete) _buildHeader(context),
+          // Room info & date navigation (voor iedereen behalve coordinator bezetting-modus)
+          if (!(authProvider.isCoordinator && widget.forceDayPartView)) _buildHeader(context),
 
-          // Ruimteomschrijving voor dagdeel-modus (geen datumnavigatie nodig)
-          if ((!canBookHalfHour || (authProvider.isCoordinator && widget.forceDayPartView)) && !widget.room.isObsolete && widget.room.description != null)
+          // Ruimteomschrijving alleen voor coordinator bezetting-modus
+          if ((authProvider.isCoordinator && widget.forceDayPartView) && !widget.room.isObsolete && widget.room.description != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -921,11 +926,87 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   }
 
   /// Dagdeel weergave voor ambassadeurs - 2 weken naast elkaar, gelijke rijhoogtes
+  Widget _buildDayPartDayView(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final reservationProvider = context.watch<ReservationProvider>();
+    final now = DateTime.now();
+    final activeDayParts = DayPart.values
+        .where((dp) => dp != DayPart.avond || _allowsEveningBooking)
+        .toList();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: activeDayParts.map((dayPart) {
+        final status = reservationProvider.getDayPartStatus(
+          widget.room.id,
+          _selectedDate,
+          dayPart,
+          authProvider.userName,
+        );
+        final dayPartStart = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          8 + (dayPart.startSlotIndex ~/ 2),
+          (dayPart.startSlotIndex % 2) * 30,
+        );
+        final isPast = dayPartStart.isBefore(now);
+        final canBook = !isPast && status.isFullyAvailable;
+        final canCancel = !isPast && status.bookedByUser > 0;
+        final otherBookerName = status.firstOtherBookerName;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                color: Theme.of(context).colorScheme.primaryContainer.withAlpha(160),
+                child: Row(
+                  children: [
+                    Text(
+                      dayPart.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      dayPart.timeRange,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              _DayPartCell(
+                status: status,
+                isPast: isPast,
+                canBook: canBook,
+                canCancel: canCancel,
+                isCoordinatorManage: false,
+                coordinatorTap: null,
+                ownName: authProvider.userName,
+                otherBookerName: otherBookerName,
+                onBook: () => _bookDayPart(dayPart, _selectedDate),
+                onCancel: () => _cancelDayPart(dayPart, _selectedDate),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildDayPartView(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
     final now = DateTime.now();
     final today = DateTime.utc(now.year, now.month, now.day);
+
+    // Ambassadeurs: toon per-dag weergave
+    if (!authProvider.isCoordinator) {
+      return _buildDayPartDayView(context);
+    }
+
     // Coordinators mogen ook weken terugkijken
     final canGoBack = authProvider.isCoordinator || _dayPartWeekStart.isAfter(today);
     final week2Start = _dayPartWeekStart.add(const Duration(days: 7));
