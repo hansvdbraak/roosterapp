@@ -82,8 +82,24 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 onPressed: () => setState(() => _coordinatorMode = null),
               )
             : null,
+        leadingWidth: authProvider.isCoordinator && _coordinatorMode != null ? 48 : null,
         automaticallyImplyLeading: false,
-        title: Text(appBarTitle),
+        title: authProvider.isCoordinator && _coordinatorMode != null
+            ? Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _coordinatorMode = null),
+                    child: const Text(
+                      'Terug naar vorig menu',
+                      style: TextStyle(fontSize: 14, color: Colors.deepOrange),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(appBarTitle),
+                  const Spacer(),
+                ],
+              )
+            : Text(appBarTitle),
         actions: [
           if (!showDashboard)
             TextButton.icon(
@@ -230,7 +246,10 @@ class _RoomListScreenState extends State<RoomListScreen> {
   }
 
   Widget _buildCoordinatorDashboard(BuildContext context) {
-    return Padding(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -262,6 +281,8 @@ class _RoomListScreenState extends State<RoomListScreen> {
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
