@@ -348,23 +348,10 @@ class _RoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reservations = reservationProvider.getReservationsForRoom(room.id, selectedDate);
-    final totalSlots = 28;
     final bookedSlots = reservations.length;
-    final availableSlots = totalSlots - bookedSlots;
-
-    // Bepaal status kleur
-    Color statusColor;
-    String statusText;
-    if (bookedSlots == 0) {
-      statusColor = const Color(0xFFFF2800); // Ferrari rood = beschikbaar
-      statusText = 'Beschikbaar';
-    } else if (bookedSlots == totalSlots) {
-      statusColor = Colors.red;
-      statusText = 'Volledig bezet';
-    } else {
-      statusColor = Colors.orange;
-      statusText = '$availableSlots/$totalSlots vrij';
-    }
+    final Color statusColor = bookedSlots == 0
+        ? const Color(0xFFFF2800)
+        : bookedSlots == 28 ? Colors.red : Colors.orange;
 
     // Huidige/volgende reservering
     String? currentBooker;
@@ -479,28 +466,6 @@ class _RoomCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time,
-                      size: 16,
-                      color: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                          ? (statusText == 'Beschikbaar' ? const Color(0xFFFF2800) : Colors.white)
-                          : statusColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        color: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                            ? (statusText == 'Beschikbaar' ? const Color(0xFFFF2800) : Colors.white)
-                            : statusColor,
-                        fontWeight: statusText == 'Beschikbaar' ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
                 if (currentBooker != null) ...[
                   const SizedBox(height: 4),
                   Text(
