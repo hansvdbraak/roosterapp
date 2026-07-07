@@ -97,7 +97,9 @@ class _UserCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: isSuperuser ? () => _showUserDetails(context) : null,
+        onTap: isSuperuser
+            ? () => canEditProfile ? _editProfile(context) : _showUserDetails(context)
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),

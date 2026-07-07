@@ -27,8 +27,13 @@ if [ $? -ne 0 ]; then
 fi
 echo ""
 
-# Step 4: Deploy changelog
-echo "Step 4: Deploying changelog..."
+# Step 4: Fix permissions
+echo "Step 4: Permissies instellen..."
+ssh root@91.99.141.133 "chmod -R 755 /var/www/roosterapp/"
+echo ""
+
+# Step 5: Deploy changelog
+echo "Step 5: Deploying changelog..."
 VERSION=$(grep "version = " lib/config/version.dart | sed "s/.*'\(.*\)'.*/\1/")
 if [ -f "changelog.txt" ]; then
     # Voeg build-versie header toe bovenaan en kopieer naar server

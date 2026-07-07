@@ -6,9 +6,10 @@ import '../providers/room_provider.dart';
 import '../providers/reservation_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
+import '../models/room.dart';
 import '../widgets/app_header.dart';
 
-enum DashboardView { choice, weekList, quarterList, weekDetail, quarterDetail }
+enum DashboardView { choice, weekList, quarterList, weekDetail, quarterDetail, weekSchedule }
 
 class CoordinatorDashboardScreen extends StatefulWidget {
   const CoordinatorDashboardScreen({super.key});
@@ -22,19 +23,26 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
   int _selectedYear = DateTime.now().year;
   DateTime? _selectedWeekStart;
   int? _selectedQuarter;
+  late DateTime _scheduleWeekStart;
 
   Set<String> _verwerktWeeks = {};
   Set<String> _verwerktQuarters = {};
+  Set<String> _verwerktUsers = {};
   static const String _verwerktWeeksKey = 'coordinator_verwerkt_weeks';
   static const String _verwerktQuartersKey = 'coordinator_verwerkt_quarters';
+  static const String _verwerktUsersKey = 'coordinator_verwerkt_users';
 
   @override
   void initState() {
     super.initState();
-    // In januari: toon vorig jaar
-    if (DateTime.now().month == 1) {
+    // In Q1 (jan-mrt): toon vorig jaar zodat Q4 van vorig jaar zichtbaar is
+    if (DateTime.now().month <= 3) {
       _selectedYear = DateTime.now().year - 1;
     }
+    // Start week schedule at Monday of current week
+    final nowInit = DateTime.now();
+    final todayInit = DateTime.utc(nowInit.year, nowInit.month, nowInit.day);
+    _scheduleWeekStart = todayInit.subtract(Duration(days: todayInit.weekday - 1));
     _loadVerwerktState();
   }
 
@@ -42,10 +50,12 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     final prefs = await SharedPreferences.getInstance();
     final weeks = prefs.getStringList(_verwerktWeeksKey) ?? [];
     final quarters = prefs.getStringList(_verwerktQuartersKey) ?? [];
+    final userKeys = prefs.getStringList(_verwerktUsersKey) ?? [];
     if (mounted) {
       setState(() {
         _verwerktWeeks = weeks.toSet();
         _verwerktQuarters = quarters.toSet();
+        _verwerktUsers = userKeys.toSet();
       });
     }
   }
@@ -81,6 +91,19 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     await prefs.setStringList(_verwerktQuartersKey, _verwerktQuarters.toList());
   }
 
+  Future<void> _toggleVerwerktUser(String periodKey, String userName) async {
+    final key = '${periodKey}_$userName';
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      if (_verwerktUsers.contains(key)) {
+        _verwerktUsers.remove(key);
+      } else {
+        _verwerktUsers.add(key);
+      }
+    });
+    await prefs.setStringList(_verwerktUsersKey, _verwerktUsers.toList());
+  }
+
   void _selectWeekly() {
     setState(() {
       _currentView = DashboardView.weekList;
@@ -109,14 +132,38 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
 
   void _goBack() {
     setState(() {
-      if (_currentView == DashboardView.weekDetail) {
-        _currentView = DashboardView.weekList;
-        _selectedWeekStart = null;
-      } else if (_currentView == DashboardView.quarterDetail) {
+      if (_currentView == DashboardView.quarterDetail) {
         _currentView = DashboardView.quarterList;
         _selectedQuarter = null;
-      } else if (_currentView == DashboardView.weekList || _currentView == DashboardView.quarterList) {
+      } else if (_currentView == DashboardView.quarterList ||
+                 _currentView == DashboardView.weekSchedule) {
         _currentView = DashboardView.choice;
+      }
+    });
+  }
+
+  void _goToPreviousQuarter() {
+    setState(() {
+      if (_selectedQuarter == 1) {
+        _selectedYear--;
+        _selectedQuarter = 4;
+      } else {
+        _selectedQuarter = _selectedQuarter! - 1;
+      }
+    });
+  }
+
+  void _goToNextQuarter() {
+    final now = DateTime.now();
+    final currentQuarter = ((now.month - 1) ~/ 3) + 1;
+    final isLastAllowed = _selectedYear == now.year && _selectedQuarter == currentQuarter;
+    if (isLastAllowed) return;
+    setState(() {
+      if (_selectedQuarter == 4) {
+        _selectedYear++;
+        _selectedQuarter = 1;
+      } else {
+        _selectedQuarter = _selectedQuarter! + 1;
       }
     });
   }
@@ -163,7 +210,9 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
-        leading: _currentView != DashboardView.choice
+        leading: (_currentView == DashboardView.quarterDetail ||
+                  _currentView == DashboardView.quarterList ||
+                  _currentView == DashboardView.weekSchedule)
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 style: IconButton.styleFrom(
@@ -175,7 +224,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
               )
             : null,
         actions: [
-          if (_currentView == DashboardView.weekList || _currentView == DashboardView.quarterList)
+          if (_currentView == DashboardView.quarterList)
             Row(
               children: [
                 IconButton(
@@ -194,6 +243,30 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                 ),
               ],
             ),
+          if (_currentView == DashboardView.quarterDetail)
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: _goToPreviousQuarter,
+                  tooltip: 'Vorig kwartaal',
+                ),
+                Text(
+                  '$_selectedYear',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    final now = DateTime.now();
+                    final currentQuarter = ((now.month - 1) ~/ 3) + 1;
+                    final isLast = _selectedYear == now.year && _selectedQuarter == currentQuarter;
+                    if (!isLast) _goToNextQuarter();
+                  },
+                  tooltip: 'Volgend kwartaal',
+                ),
+              ],
+            ),
           const AppHeaderActions(showDate: true),
         ],
       ),
@@ -209,6 +282,8 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
         return 'Wekelijks overzicht';
       case DashboardView.quarterList:
         return 'Kwartaaloverzicht';
+      case DashboardView.weekSchedule:
+        return 'Weekrooster';
       case DashboardView.weekDetail:
         final weekNumber = _getWeekNumber(_selectedWeekStart!);
         return 'Week $weekNumber';
@@ -225,6 +300,8 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
         return _buildWeekListView();
       case DashboardView.quarterList:
         return _buildQuarterListView();
+      case DashboardView.weekSchedule:
+        return _buildWeekScheduleView();
       case DashboardView.weekDetail:
         return _buildWeekDetailView();
       case DashboardView.quarterDetail:
@@ -261,9 +338,9 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
               Expanded(
                 child: _ChoiceCard(
                   icon: Icons.view_week,
-                  title: 'Wekelijks',
-                  subtitle: 'Per week bekijken',
-                  onTap: _selectWeekly,
+                  title: 'Weekrooster',
+                  subtitle: 'Ruimtebezetting per dagdeel',
+                  onTap: () => setState(() => _currentView = DashboardView.weekSchedule),
                 ),
               ),
               const SizedBox(width: 16),
@@ -552,6 +629,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     return _buildUserHoursList(
       title: 'Week $weekNumber',
       subtitle: '${DateFormat('d MMMM', 'nl').format(weekStart)} - ${DateFormat('d MMMM yyyy', 'nl').format(weekEnd)}',
+      periodKey: _weekKey(weekStart),
       users: eenvoudigUsers,
       coordinatorUsers: coordinatorUsers,
       isVerwerkt: isVerwerkt,
@@ -583,6 +661,14 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
       daysInQuarter,
     );
 
+    final gebruikerUsers = _getGebruikerUsersWithHours(
+      reservationProvider,
+      roomProvider,
+      authProvider,
+      quarterStart,
+      daysInQuarter,
+    );
+
     final coordinatorUsers = _getCoordinatorUsersWithHours(
       reservationProvider,
       roomProvider,
@@ -596,7 +682,9 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     return _buildUserHoursList(
       title: _getQuarterName(_selectedQuarter!),
       subtitle: '${DateFormat('d MMMM', 'nl').format(quarterStart)} - ${DateFormat('d MMMM yyyy', 'nl').format(quarterEnd)}',
+      periodKey: _quarterKey(_selectedYear, _selectedQuarter!),
       users: eenvoudigUsers,
+      gebruikerUsers: gebruikerUsers,
       coordinatorUsers: coordinatorUsers,
       isVerwerkt: isVerwerkt,
       onToggleVerwerkt: () => _toggleVerwerktQuarter(_selectedYear, _selectedQuarter!),
@@ -675,6 +763,62 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     return eenvoudigUsers;
   }
 
+  List<_UserHours> _getGebruikerUsersWithHours(
+    ReservationProvider reservationProvider,
+    RoomProvider roomProvider,
+    AuthProvider authProvider,
+    DateTime startDate,
+    int days,
+  ) {
+    final Map<String, int> slotsCol1ByUser = {};
+    final Map<String, int> slotsCol2ByUser = {};
+    final Map<String, int> slotsCol3ByUser = {};
+    final rooms = roomProvider.rooms.where((r) => r.isBookable).toList();
+
+    for (int day = 0; day < days; day++) {
+      final date = startDate.add(Duration(days: day));
+      if (date.weekday <= 5) {
+        for (final room in rooms) {
+          final reservations = reservationProvider.getReservationsForRoom(room.id, date);
+          for (final res in reservations) {
+            final name = res.bookerName;
+            final slotIndex = res.slotIndex;
+            if (slotIndex >= 0 && slotIndex <= 9) {
+              slotsCol1ByUser[name] = (slotsCol1ByUser[name] ?? 0) + 1;
+            } else if (slotIndex >= 10 && slotIndex <= 17) {
+              slotsCol2ByUser[name] = (slotsCol2ByUser[name] ?? 0) + 1;
+            } else if (slotIndex >= 22 && slotIndex <= 27) {
+              slotsCol3ByUser[name] = (slotsCol3ByUser[name] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+
+    final allNames = <String>{
+      ...slotsCol1ByUser.keys,
+      ...slotsCol2ByUser.keys,
+      ...slotsCol3ByUser.keys,
+    };
+
+    final gebruikerUsers = <_UserHours>[];
+    for (final name in allNames) {
+      final user = authProvider.getUserByName(name);
+      if (user != null && user.role == UserRole.gebruiker) {
+        gebruikerUsers.add(_UserHours(
+          name: name,
+          slotsCol1: slotsCol1ByUser[name] ?? 0,
+          slotsCol2: slotsCol2ByUser[name] ?? 0,
+          slotsCol3: slotsCol3ByUser[name] ?? 0,
+          comment: user.comment,
+        ));
+      }
+    }
+
+    gebruikerUsers.sort((a, b) => b.totalSlots.compareTo(a.totalSlots));
+    return gebruikerUsers;
+  }
+
   List<_UserHours> _getCoordinatorUsersWithHours(
     ReservationProvider reservationProvider,
     RoomProvider roomProvider,
@@ -735,7 +879,9 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
   Widget _buildUserHoursList({
     required String title,
     required String subtitle,
+    required String periodKey,
     required List<_UserHours> users,
+    List<_UserHours> gebruikerUsers = const [],
     List<_UserHours> coordinatorUsers = const [],
     bool isVerwerkt = false,
     VoidCallback? onToggleVerwerkt,
@@ -835,7 +981,11 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
             ),
           )
         else
-          ...users.map((user) => _UserHoursCard(user: user)),
+          ...users.map((user) => _UserHoursCard(
+                user: user,
+                isVerwerkt: _verwerktUsers.contains('${periodKey}_${user.name}'),
+                onToggle: () => _toggleVerwerktUser(periodKey, user.name),
+              )),
 
         const SizedBox(height: 16),
 
@@ -875,6 +1025,107 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
               ),
             ),
           ),
+
+        // Gebruikers sectie
+        if (gebruikerUsers.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withAlpha((255 * 0.3).round())),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.person, color: Colors.blue[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Gebruikers',
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${gebruikerUsers.length} gebruiker${gebruikerUsers.length == 1 ? '' : 's'}',
+                  style: TextStyle(color: Colors.blue[600], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Gebruiker',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                _buildColumnHeader('Tot 13u', Colors.orange),
+                _buildColumnHeader('13-17u', Colors.blue),
+                _buildColumnHeader('19-22u', Colors.purple),
+                _buildColumnHeader('Totaal', Colors.teal),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...gebruikerUsers.map((user) => _UserHoursCard(
+                user: user,
+                isVerwerkt: _verwerktUsers.contains('${periodKey}_${user.name}'),
+                onToggle: () => _toggleVerwerktUser(periodKey, user.name),
+              )),
+          const SizedBox(height: 8),
+          Card(
+            color: Colors.blue[50],
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Subtotaal gebruikers',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Expanded(flex: 3, child: SizedBox()),
+                      _buildTotalBadge(
+                        gebruikerUsers.fold<int>(0, (s, u) => s + u.slotsCol1) * 0.5,
+                        Colors.orange,
+                      ),
+                      _buildTotalBadge(
+                        gebruikerUsers.fold<int>(0, (s, u) => s + u.slotsCol2) * 0.5,
+                        Colors.blue,
+                      ),
+                      _buildTotalBadge(
+                        gebruikerUsers.fold<int>(0, (s, u) => s + u.slotsCol3) * 0.5,
+                        Colors.purple,
+                      ),
+                      _buildTotalBadge(
+                        gebruikerUsers.fold<int>(0, (s, u) => s + u.totalSlots) * 0.5,
+                        Colors.teal,
+                        isTotal: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
 
         // Coördinatoren sectie
         if (coordinatorUsers.isNotEmpty) ...[
@@ -927,7 +1178,11 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
             ),
           ),
           const SizedBox(height: 8),
-          ...coordinatorUsers.map((user) => _UserHoursCard(user: user)),
+          ...coordinatorUsers.map((user) => _UserHoursCard(
+                user: user,
+                isVerwerkt: _verwerktUsers.contains('${periodKey}_${user.name}'),
+                onToggle: () => _toggleVerwerktUser(periodKey, user.name),
+              )),
           const SizedBox(height: 8),
           Card(
             color: Colors.orange[50],
@@ -977,38 +1232,500 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
           ),
         ],
 
-        // Verwerkt knop
-        if (onToggleVerwerkt != null) ...[
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: isVerwerkt
-                ? OutlinedButton.icon(
-                    onPressed: onToggleVerwerkt,
-                    icon: const Icon(Icons.check_circle, color: Colors.green),
-                    label: const Text(
-                      'Verwerkt – tik om ongedaan te maken',
-                      style: TextStyle(color: Colors.green),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: Colors.green, width: 2),
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: onToggleVerwerkt,
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Markeer als verwerkt'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-          ),
-        ],
       ],
     );
+  }
+
+  // ── Week schedule helpers ──────────────────────────────────────────────
+
+  bool _roomAllowsEvening(Room room) {
+    final name = room.name.toLowerCase();
+    return name.contains('trefpunt aquarium') || name.contains('de kuil in het gemeentehuis');
+  }
+
+  int _isoWeekNumber(DateTime date) {
+    final d = DateTime.utc(date.year, date.month, date.day);
+    final thu = d.add(Duration(days: 4 - d.weekday));
+    final yearStart = DateTime.utc(thu.year, 1, 1);
+    return (thu.difference(yearStart).inDays ~/ 7) + 1;
+  }
+
+  Widget _buildWeekScheduleView() {
+    final roomProvider = context.watch<RoomProvider>();
+    final reservationProvider = context.watch<ReservationProvider>();
+    final authProvider = context.watch<AuthProvider>();
+    final now = DateTime.now();
+
+    final bookableRooms = roomProvider.rooms.where((r) => r.isBookable).toList();
+    final endDate = _scheduleWeekStart.add(const Duration(days: 13));
+    final rangeLabel =
+        '${DateFormat('d MMM', 'nl').format(_scheduleWeekStart)} – ${DateFormat('d MMM', 'nl').format(endDate)}';
+
+    return Column(
+      children: [
+        // Week navigation bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => setState(() => _scheduleWeekStart =
+                    DateTime.utc(_scheduleWeekStart.year, _scheduleWeekStart.month, _scheduleWeekStart.day - 7)),
+                icon: const Icon(Icons.chevron_left, size: 18),
+                label: const Text('Vorige week', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.yellow[100],
+                  foregroundColor: Colors.deepOrange,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: Colors.deepOrange, width: 2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  rangeLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => setState(() => _scheduleWeekStart = DateTime.utc(
+                    _scheduleWeekStart.year, _scheduleWeekStart.month, _scheduleWeekStart.day + 7)),
+                icon: const Icon(Icons.chevron_right, size: 18),
+                label: const Text('Volgende week', style: TextStyle(fontSize: 13)),
+                iconAlignment: IconAlignment.end,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.yellow[100],
+                  foregroundColor: Colors.deepOrange,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: Colors.deepOrange, width: 2),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        if (bookableRooms.isEmpty)
+          const Expanded(child: Center(child: Text('Geen ruimten beschikbaar')))
+        else
+          Expanded(
+            child: ListView(
+              children: [
+                for (final room in bookableRooms)
+                  _buildRoomScheduleSection(room, reservationProvider, authProvider, now),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRoomScheduleSection(
+      Room room, ReservationProvider reservationProvider, AuthProvider authProvider, DateTime now) {
+    final allowsEvening = _roomAllowsEvening(room);
+    final dayParts = DayPart.values.where((dp) => dp != DayPart.avond || allowsEvening).toList();
+
+    final week1Start = _scheduleWeekStart;
+    final week2Start = _scheduleWeekStart.add(const Duration(days: 7));
+    final week1Num = _isoWeekNumber(week1Start);
+    final week2Num = _isoWeekNumber(week2Start);
+
+    // Compacte dagdeel-headers voor één weekhelft
+    Widget dayPartHeaders() => Row(
+      children: [
+        const SizedBox(width: 52),
+        ...dayParts.map((dp) => Expanded(
+          child: Text(
+            dp.displayName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+          ),
+        )),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Ruimte header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Theme.of(context).colorScheme.primary,
+          child: Text(
+            room.name,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+        ),
+        // Week-nummer headers naast elkaar
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                color: Theme.of(context).colorScheme.primaryContainer.withAlpha(160),
+                child: Text(
+                  'Week $week1Num  ·  ${DateFormat('d MMM', 'nl').format(week1Start)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ),
+            Container(width: 1, color: Colors.white),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                color: Theme.of(context).colorScheme.primaryContainer.withAlpha(160),
+                child: Text(
+                  'Week $week2Num  ·  ${DateFormat('d MMM', 'nl').format(week2Start)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Dagdeel-kolom headers naast elkaar
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(180),
+                child: dayPartHeaders(),
+              ),
+            ),
+            Container(width: 1, color: Colors.grey[300]),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(180),
+                child: dayPartHeaders(),
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 1),
+        // 7 rijen: dag i van week 1 links, dag i van week 2 rechts
+        ...List.generate(7, (i) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildCoordDayRowCompact(
+                      room, week1Start.add(Duration(days: i)), dayParts,
+                      reservationProvider, authProvider, now,
+                    ),
+                  ),
+                  Container(width: 1, color: Colors.grey[300]),
+                  Expanded(
+                    child: _buildCoordDayRowCompact(
+                      room, week2Start.add(Duration(days: i)), dayParts,
+                      reservationProvider, authProvider, now,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+          ],
+        )),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildCoordDayRowCompact(
+    Room room,
+    DateTime date,
+    List<DayPart> dayParts,
+    ReservationProvider reservationProvider,
+    AuthProvider authProvider,
+    DateTime now,
+  ) {
+    final dayLabel = DateFormat('EEE', 'nl').format(date);
+    final dateLabel = DateFormat('d/M', 'nl').format(date);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 52,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(dayLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                Text(dateLabel, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ],
+            ),
+          ),
+          ...dayParts.map((dayPart) {
+            final status = reservationProvider.getDayPartStatus(
+              room.id, date, dayPart, authProvider.userName,
+            );
+            final dpStartHour = 8 + (dayPart.startSlotIndex ~/ 2);
+            final dpStartMinute = (dayPart.startSlotIndex % 2) * 30;
+            final dayPartStart = DateTime(date.year, date.month, date.day, dpStartHour, dpStartMinute);
+            final isPast = dayPartStart.isBefore(now);
+
+            return Expanded(
+              child: _CoordDayPartCell(
+                status: status,
+                isPast: isPast,
+                onTap: isPast
+                    ? null
+                    : () => _coordShowSlotDialog(room, date, dayPart, status, authProvider),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoordDayRow(
+    Room room,
+    DateTime date,
+    List<DayPart> dayParts,
+    ReservationProvider reservationProvider,
+    AuthProvider authProvider,
+    DateTime now,
+  ) {
+    final dayLabel = DateFormat('EEE', 'nl').format(date);
+    final dateLabel = DateFormat('d MMM', 'nl').format(date);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 68,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(dayLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(dateLabel, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ),
+          ...dayParts.map((dayPart) {
+            final status = reservationProvider.getDayPartStatus(
+              room.id, date, dayPart, authProvider.userName,
+            );
+            final dpStartHour = 8 + (dayPart.startSlotIndex ~/ 2);
+            final dpStartMinute = (dayPart.startSlotIndex % 2) * 30;
+            final dayPartStart = DateTime(date.year, date.month, date.day, dpStartHour, dpStartMinute);
+            final isPast = dayPartStart.isBefore(now);
+
+            return Expanded(
+              child: _CoordDayPartCell(
+                status: status,
+                isPast: isPast,
+                onTap: isPast
+                    ? null
+                    : () => _coordShowSlotDialog(room, date, dayPart, status, authProvider),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _coordShowSlotDialog(
+    Room room,
+    DateTime date,
+    DayPart dayPart,
+    DayPartStatus status,
+    AuthProvider authProvider,
+  ) async {
+    final reservationProvider = context.read<ReservationProvider>();
+    final dateLabel = DateFormat('EEEE d MMMM', 'nl').format(date);
+    final bookerName = status.hasAnyBookings
+        ? (status.firstOtherBookerName ?? authProvider.userName)
+        : null;
+
+    if (bookerName != null) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('${dayPart.displayName} – $dateLabel'),
+          content: Text('$bookerName heeft dit dagdeel geboekt in ${room.name}.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Sluiten')),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'reassign'),
+              child: const Text('Toewijzen aan...'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Wissen'),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (action == 'cancel') {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Bevestig wissen'),
+            content: Text(
+                'Wil je de boeking van $bookerName voor ${dayPart.displayName.toLowerCase()} op $dateLabel wissen?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuleren')),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Wissen'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true && mounted) {
+          try {
+            await reservationProvider.cancelDayPartReservation(
+              roomId: room.id,
+              date: date,
+              dayPart: dayPart,
+              userName: bookerName, // de daadwerkelijke boeker, niet de coördinator
+              isSuperuser: true,
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${dayPart.displayName} gewist'), backgroundColor: Colors.orange),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(e.toString().replaceAll('Exception: ', '')),
+                    backgroundColor: Colors.red),
+              );
+            }
+          }
+        }
+      } else if (action == 'reassign') {
+        try {
+          await reservationProvider.cancelDayPartReservation(
+            roomId: room.id,
+            date: date,
+            dayPart: dayPart,
+            userName: bookerName, // de daadwerkelijke boeker, niet de coördinator
+            isSuperuser: true,
+          );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content:
+                      Text('Wissen mislukt: ${e.toString().replaceAll('Exception: ', '')}'),
+                  backgroundColor: Colors.red),
+            );
+          }
+          return;
+        }
+        if (mounted) await _coordAssignDayPart(room, date, dayPart, authProvider);
+      }
+    } else {
+      await _coordAssignDayPart(room, date, dayPart, authProvider);
+    }
+  }
+
+  Future<void> _coordAssignDayPart(
+      Room room, DateTime date, DayPart dayPart, AuthProvider authProvider) async {
+    final reservationProvider = context.read<ReservationProvider>();
+    final eenvoudigUsers = authProvider.allUsers
+        .where((u) => u.role == UserRole.gebruikerEenvoud)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (eenvoudigUsers.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Geen standaard gebruikers beschikbaar'),
+              backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    final selectedUser = await showDialog<User>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Toewijzen – ${dayPart.displayName}'),
+        content: SizedBox(
+          width: 300,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: eenvoudigUsers.length,
+            itemBuilder: (ctx, i) {
+              final user = eenvoudigUsers[i];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.teal[100],
+                  child: Text(user.name[0].toUpperCase(),
+                      style: TextStyle(color: Colors.teal[800], fontWeight: FontWeight.bold)),
+                ),
+                title: Text(user.name),
+                subtitle: user.comment != null && user.comment!.isNotEmpty
+                    ? Text(user.comment!, style: const TextStyle(fontSize: 12))
+                    : null,
+                onTap: () => Navigator.pop(ctx, user),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuleren')),
+        ],
+      ),
+    );
+
+    if (selectedUser == null || !mounted) return;
+
+    try {
+      await reservationProvider.createDayPartReservation(
+        roomId: room.id,
+        bookerName: selectedUser.name,
+        date: date,
+        dayPart: dayPart,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${dayPart.displayName} toegewezen aan ${selectedUser.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Widget _buildColumnHeader(String label, Color color) {
@@ -1135,13 +1852,20 @@ class _ChoiceCard extends StatelessWidget {
 
 class _UserHoursCard extends StatelessWidget {
   final _UserHours user;
+  final bool isVerwerkt;
+  final VoidCallback? onToggle;
 
-  const _UserHoursCard({required this.user});
+  const _UserHoursCard({
+    required this.user,
+    this.isVerwerkt = false,
+    this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
+      color: isVerwerkt ? Colors.green[50] : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -1153,15 +1877,17 @@ class _UserHoursCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 16,
-                    backgroundColor: Colors.teal[100],
-                    child: Text(
-                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: Colors.teal[800],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    backgroundColor: isVerwerkt ? Colors.green[200] : Colors.teal[100],
+                    child: isVerwerkt
+                        ? Icon(Icons.check, size: 16, color: Colors.green[800])
+                        : Text(
+                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              color: Colors.teal[800],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -1199,8 +1925,20 @@ class _UserHoursCard extends StatelessWidget {
             _buildHoursBadge(user.hoursCol2, Colors.blue),
             // Kolom 3: 19-22u
             _buildHoursBadge(user.hoursCol3, Colors.purple),
-            // Totaal
+            // Totaal + verwerkt knop
             _buildHoursBadge(user.totalHours, Colors.teal, isTotal: true),
+            if (onToggle != null)
+              GestureDetector(
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Icon(
+                    isVerwerkt ? Icons.check_circle : Icons.check_circle_outline,
+                    color: isVerwerkt ? Colors.green : Colors.grey[400],
+                    size: 22,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -1297,6 +2035,73 @@ class _WeekCardProminent extends StatelessWidget {
               const SizedBox(height: 8),
               Icon(Icons.arrow_forward, color: color, size: 20),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dagdeel cel voor coordinator weekrooster
+class _CoordDayPartCell extends StatelessWidget {
+  final DayPartStatus status;
+  final bool isPast;
+  final VoidCallback? onTap;
+
+  const _CoordDayPartCell({
+    required this.status,
+    required this.isPast,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color bgColor;
+    String label;
+
+    if (isPast) {
+      bgColor = const Color(0xFFCCCCCC); // grijs = verlopen
+      label = status.hasAnyBookings
+          ? (status.firstOtherBookerName ?? 'Bezet')
+          : 'Vrij';
+    } else if (!status.hasAnyBookings) {
+      bgColor = const Color(0xFFFF2800); // rood = vrij
+      label = 'Vrij';
+    } else {
+      bgColor = const Color(0xFF4CBB17); // groen = bezet
+      label = status.firstOtherBookerName ?? 'Bezet';
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashColor: Colors.white24,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+            child: Center(
+              child: label.isEmpty
+                  ? const SizedBox.shrink()
+                  : Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isPast ? Colors.grey[700] : Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+            ),
           ),
         ),
       ),

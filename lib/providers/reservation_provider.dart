@@ -189,8 +189,17 @@ class ReservationProvider extends ChangeNotifier {
         slotIndices: slotIndices,
       );
 
-      // Refresh cache
-      await loadReservations(roomId, date);
+      // Immediately update cache with the returned reservations so the UI
+      // reflects the change without waiting for a second server round-trip.
+      final key = _cacheKey(roomId, date);
+      final existing = List<server.Reservation>.from(_reservationCache[key] ?? []);
+      existing.addAll(serverReservations);
+      _reservationCache[key] = existing;
+      notifyListeners();
+
+      // Fire-and-forget reload to keep cache fully in sync
+      loadReservations(roomId, date);
+
       return serverReservations.map(_serverReservationToLocal).toList();
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -219,8 +228,17 @@ class ReservationProvider extends ChangeNotifier {
         slotIndices: slotIndices,
       );
 
-      // Refresh cache
-      await loadReservations(roomId, date);
+      // Immediately remove cancelled slots from cache so the UI shows "Vrij"
+      // right away without waiting for a second server round-trip.
+      final key = _cacheKey(roomId, date);
+      if (_reservationCache.containsKey(key)) {
+        _reservationCache[key] = _reservationCache[key]!
+            .where((r) => !slotIndices.contains(r.slotIndex))
+            .toList();
+      } else {
+        _reservationCache[key] = [];
+      }
+      notifyListeners();
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

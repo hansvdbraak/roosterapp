@@ -1,0 +1,51 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0\fswiss Helvetica;}{\f1\fmodern Courier New;}}
+\f0\fs24
+{\b Terminal Sessie - Roosterapp}\line
+\line
+{\b Gebruiker:}\line
+er volgen nog een paar nadere inventarisaties van zaken die moeten worden veranderd: ruimten die niet meer in gebruik zijn worden niet op de ruimtreserveringpagina getoond. 2.ruimten worden op de pagina naast elkaar getoond van links naar rechts totdat alle ruimten zijn getoond\line
+\line
+{\b Claude:}\line
+Ik ga deze twee aanpassingen maken aan de ruimte-reserveringspagina:\line
+1. Niet-actieve ruimtes (overbodig) worden niet getoond\line
+2. Ruimtes worden naast elkaar van links naar rechts getoond\line
+\line
+De wijzigingen zijn doorgevoerd:\line
+\line
+1. {\b Niet-actieve ruimtes verborgen}: Alleen ruimtes waar isBookable = true worden getoond\line
+2. {\b Horizontale layout}: Ruimtes worden nu naast elkaar getoond met een Wrap widget\line
+   - Op brede schermen (>600px): 2 kolommen\line
+   - Op smalle schermen: 1 kolom\line
+\line
+De cards zijn ook iets compacter gemaakt met kortere teksten zodat ze beter naast elkaar passen.\line
+\line
+---\line
+\line
+{\b Eerdere wijzigingen in deze sessie:}\line
+\line
+{\b 1. Coordinator Dashboard - 3 kolommen overzicht:}\line
+Het overzicht voor coordinatoren toont nu 3 kolommen per eenvoudige gebruiker:\line
+- Tot 13u (oranje) - uren tot 13:00\line
+- 13-17u (blauw) - uren van 13:00 tot 17:00\line
+- 19-22u (paars) - uren van 19:00 tot 22:00\line
+- Totaal (teal) - totaal aantal uren\line
+\
+{\b 2. Dagdeel tijden aangepast:}\line
+- Ochtend: 10:00 - 13:00\line
+- Middag: 13:00 - 16:00\line
+- Avond: 19:00 - 22:00\line
+\line
+{\b 3. Registratie velden verplicht:}\line
+- Telefoonnummer: verplicht\line
+- Adres: verplicht\line
+- Postcode: verplicht\line
+- Plaats: verplicht\line
+\line
+{\b 4. Overzichten herontworpen:}\line
+- Keuze tussen Wekelijks of Per kwartaal\line
+- Selectie van specifieke week of kwartaal\line
+- Toont alleen eenvoudige gebruikers met namen en uren\line
+- Geen bezettingspercentages meer\lineKR
+}
+cl

@@ -1,0 +1,359 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0\fmodern Courier New;}}
+\f0\fs20
+room_list_screen.dart\line
+\line
+import 'package:flutter/material.dart';\line
+import 'package:provider/provider.dart';\line
+import 'package:intl/intl.dart';\line
+import '../providers/auth_provider.dart';\line
+import '../providers/room_provider.dart';\line
+import '../providers/reservation_provider.dart';\line
+import '../models/room.dart';\line
+import '../models/user.dart';\line
+import '../models/time_slot.dart';\line
+import 'welcome_screen.dart';\line
+import 'room_detail_screen.dart';\line
+import 'add_room_screen.dart';\line
+import 'user_management_screen.dart';\line
+import 'coordinator_dashboard_screen.dart';\line
+\line
+class RoomListScreen extends StatefulWidget \{\line
+  const RoomListScreen(\{super.key\});\line
+\line
+  @override\line
+  State<RoomListScreen> createState() => _RoomListScreenState();\line
+\}\line
+\line
+class _RoomListScreenState extends State<RoomListScreen> \{\line
+  DateTime _selectedDate = DateTime.now();\line
+\line
+  Future<void> _selectDate() async \{\line
+    final picked = await showDatePicker(\line
+      context: context,\line
+      initialDate: _selectedDate,\line
+      firstDate: DateTime.now(),\line
+      lastDate: DateTime.now().add(const Duration(days: 365)),\line
+    );\line
+    if (picked != null) \{\line
+      setState(() => _selectedDate = picked);\line
+    \}\line
+  \}\line
+\line
+  Future<void> _logout() async \{\line
+    await context.read<AuthProvider>().logout();\line
+    if (mounted) \{\line
+      Navigator.of(context).pushReplacement(\line
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),\line
+      );\line
+    \}\line
+  \}\line
+\line
+  Color _getRoleColor(UserRole role) \{\line
+    switch (role) \{\line
+      case UserRole.superuser:\line
+        return Colors.purple;\line
+      case UserRole.coordinator:\line
+        return Colors.orange;\line
+      case UserRole.gebruiker:\line
+        return Colors.blue;\line
+      case UserRole.gebruikerEenvoud:\line
+        return Colors.teal;\line
+    \}\line
+  \}\line
+\line
+  @override\line
+  Widget build(BuildContext context) \{\line
+    final authProvider = context.watch<AuthProvider>();\line
+    final roomProvider = context.watch<RoomProvider>();\line
+    final reservationProvider = context.watch<ReservationProvider>();\line
+\line
+    return Scaffold(\line
+      appBar: AppBar(\line
+        title: const Text('Ruimtes'),\line
+        actions: [\line
+          TextButton.icon(\line
+            onPressed: _selectDate,\line
+            icon: const Icon(Icons.calendar_today),\line
+            label: Text(\line
+              DateFormat('d MMM', 'nl').format(_selectedDate),\line
+              style: const TextStyle(fontWeight: FontWeight.bold),\line
+            ),\line
+          ),\line
+          PopupMenuButton<String>(\line
+            icon: const Icon(Icons.account_circle),\line
+            onSelected: (value) \{\line
+              switch (value) \{\line
+                case 'logout':\line
+                  _logout();\line
+                  break;\line
+                case 'users':\line
+                  Navigator.of(context).push(\line
+                    MaterialPageRoute(builder: (_) => const UserManagementScreen()),\line
+                  );\line
+                  break;\line
+                case 'dashboard':\line
+                  Navigator.of(context).push(\line
+                    MaterialPageRoute(builder: (_) => const CoordinatorDashboardScreen()),\line
+                  );\line
+                  break;\line
+              \}\line
+            \},\line
+            itemBuilder: (context) => [\line
+              PopupMenuItem(\line
+                enabled: false,\line
+                child: Column(\line
+                  crossAxisAlignment: CrossAxisAlignment.start,\line
+                  children: [\line
+                    Text(\line
+                      authProvider.userName,\line
+                      style: const TextStyle(fontWeight: FontWeight.bold),\line
+                    ),\line
+                    const SizedBox(height: 4),\line
+                    Container(\line
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),\line
+                      decoration: BoxDecoration(\line
+                        color: _getRoleColor(authProvider.userRole).withAlpha((255 * 0.1).round()),\line
+                        borderRadius: BorderRadius.circular(12),\line
+                        border: Border.all(\line
+                          color: _getRoleColor(authProvider.userRole).withAlpha((255 * 0.3).round()),\line
+                        ),\line
+                      ),\line
+                      child: Text(\line
+                        authProvider.userRole.displayName,\line
+                        style: TextStyle(\line
+                          fontSize: 12,\line
+                          color: _getRoleColor(authProvider.userRole),\line
+                        ),\line
+                      ),\line
+                    ),\line
+                  ],\line
+                ),\line
+              ),\line
+              const PopupMenuDivider(),\line
+              if (authProvider.isCoordinator)\line
+                const PopupMenuItem(\line
+                  value: 'dashboard',\line
+                  child: Row(\line
+                    children: [\line
+                      Icon(Icons.analytics),\line
+                      SizedBox(width: 8),\line
+                      Text('Bezettingsoverzicht'),\line
+                    ],\line
+                  ),\line
+                ),\line
+              if (authProvider.isSuperuser)\line
+                const PopupMenuItem(\line
+                  value: 'users',\line
+                  child: Row(\line
+                    children: [\line
+                      Icon(Icons.people),\line
+                      SizedBox(width: 8),\line
+                      Text('Gebruikersbeheer'),\line
+                    ],\line
+                  ),\line
+                ),\line
+              if (authProvider.isCoordinator)\line
+                const PopupMenuDivider(),\line
+              const PopupMenuItem(\line
+                value: 'logout',\line
+                child: Row(\line
+                  children: [\line
+                    Icon(Icons.logout),\line
+                    SizedBox(width: 8),\line
+                    Text('Uitloggen'),\line
+                  ],\line
+                ),\line
+              ),\line
+            ],\line
+          ),\line
+        ],\line
+      ),\line
+      body: Builder(\line
+        builder: (context) \{\line
+          final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList();\line
+          if (activeRooms.isEmpty) \{\line
+            return const Center(\line
+              child: Text('Geen ruimtes beschikbaar'),\line
+            );\line
+          \}\line
+          return SingleChildScrollView(\line
+            padding: const EdgeInsets.all(16),\line
+            child: Wrap(\line
+              spacing: 12,\line
+              runSpacing: 12,\line
+              children: activeRooms.map((room) \{\line
+                return _RoomCard(\line
+                  room: room,\line
+                  selectedDate: _selectedDate,\line
+                  reservationProvider: reservationProvider,\line
+                  onTap: () \{\line
+                    Navigator.of(context).push(\line
+                      MaterialPageRoute(\line
+                        builder: (_) => RoomDetailScreen(\line
+                          room: room,\line
+                          initialDate: _selectedDate,\line
+                        ),\line
+                      ),\line
+                    );\line
+                  \},\line
+                );\line
+              \}).toList(),\line
+            ),\line
+          );\line
+        \},\line
+      ),\line
+      floatingActionButton: authProvider.isSuperuser\line
+          ? FloatingActionButton.extended(\line
+              onPressed: () \{\line
+                Navigator.of(context).push(\line
+                  MaterialPageRoute(builder: (_) => const AddRoomScreen()),\line
+                );\line
+              \},\line
+              icon: const Icon(Icons.add),\line
+              label: const Text('Ruimte'),\line
+            )\line
+          : null,\line
+    );\line
+  \}\line
+\}\line
+\line
+class _RoomCard extends StatelessWidget \{\line
+  final Room room;\line
+  final DateTime selectedDate;\line
+  final ReservationProvider reservationProvider;\line
+  final VoidCallback onTap;\line
+\line
+  const _RoomCard(\{\line
+    required this.room,\line
+    required this.selectedDate,\line
+    required this.reservationProvider,\line
+    required this.onTap,\line
+  \});\line
+\line
+  @override\line
+  Widget build(BuildContext context) \{\line
+    final reservations = reservationProvider.getReservationsForRoom(room.id, selectedDate);\line
+    final totalSlots = 28;\line
+    final bookedSlots = reservations.length;\line
+    final availableSlots = totalSlots - bookedSlots;\line
+\line
+    Color statusColor;\line
+    String statusText;\line
+    if (bookedSlots == 0) \{\line
+      statusColor = Colors.green;\line
+      statusText = 'Beschikbaar';\line
+    \} else if (bookedSlots == totalSlots) \{\line
+      statusColor = Colors.red;\line
+      statusText = 'Volledig bezet';\line
+    \} else \{\line
+      statusColor = Colors.orange;\line
+      statusText = '$availableSlots/$totalSlots vrij';\line
+    \}\line
+\line
+    String? currentBooker;\line
+    if (reservations.isNotEmpty) \{\line
+      final now = DateTime.now();\line
+      final currentSlotIndex = ((now.hour - 8) * 2) + (now.minute >= 30 ? 1 : 0);\line
+      final currentRes = reservations.where((r) => r.slotIndex == currentSlotIndex).firstOrNull;\line
+      if (currentRes != null) \{\line
+        final slot = TimeSlot(date: selectedDate, slotIndex: currentRes.slotIndex);\line
+        currentBooker = 'Nu: $\{currentRes.bookerName\} ($\{slot.getDisplayTime()\})';\line
+      \} else \{\line
+        final nextRes = reservations\line
+            .where((r) => r.slotIndex > currentSlotIndex)\line
+            .toList()\line
+          ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));\line
+        if (nextRes.isNotEmpty) \{\line
+          final slot = TimeSlot(date: selectedDate, slotIndex: nextRes.first.slotIndex);\line
+          currentBooker = 'Volg: $\{nextRes.first.bookerName\} ($\{slot.getDisplayTime()\})';\line
+        \}\line
+      \}\line
+    \}\line
+\line
+    final screenWidth = MediaQuery.of(context).size.width;\line
+    final cardWidth = screenWidth > 600\line
+        ? (screenWidth - 56) / 2\line
+        : screenWidth - 32;\line
+    final constrainedWidth = cardWidth.clamp(200.0, 400.0);\line
+\line
+    return SizedBox(\line
+      width: constrainedWidth,\line
+      child: Card(\line
+        child: InkWell(\line
+          onTap: onTap,\line
+          borderRadius: BorderRadius.circular(12),\line
+          child: Padding(\line
+            padding: const EdgeInsets.all(16),\line
+            child: Column(\line
+              crossAxisAlignment: CrossAxisAlignment.start,\line
+              mainAxisSize: MainAxisSize.min,\line
+              children: [\line
+                Row(\line
+                  children: [\line
+                    Container(\line
+                      width: 12,\line
+                      height: 12,\line
+                      decoration: BoxDecoration(\line
+                        color: statusColor,\line
+                        shape: BoxShape.circle,\line
+                      ),\line
+                    ),\line
+                    const SizedBox(width: 12),\line
+                    Expanded(\line
+                      child: Text(\line
+                        room.name,\line
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(\line
+                              fontWeight: FontWeight.bold,\line
+                            ),\line
+                        overflow: TextOverflow.ellipsis,\line
+                      ),\line
+                    ),\line
+                    const Icon(Icons.chevron_right, size: 20),\line
+                  ],\line
+                ),\line
+                if (room.description != null) ...[\line
+                  const SizedBox(height: 8),\line
+                  Text(\line
+                    room.description!,\line
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(\line
+                          color: Colors.grey[600],\line
+                        ),\line
+                    maxLines: 2,\line
+                    overflow: TextOverflow.ellipsis,\line
+                  ),\line
+                ],\line
+                const SizedBox(height: 12),\line
+                Row(\line
+                  children: [\line
+                    Icon(Icons.access_time, size: 16, color: statusColor),\line
+                    const SizedBox(width: 4),\line
+                    Text(\line
+                      statusText,\line
+                      style: TextStyle(\line
+                        color: statusColor,\line
+                        fontWeight: FontWeight.w500,\line
+                        fontSize: 13,\line
+                      ),\line
+                    ),\line
+                  ],\line
+                ),\line
+                if (currentBooker != null) ...[\line
+                  const SizedBox(height: 4),\line
+                  Text(\line
+                    currentBooker,\line
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(\line
+                          color: Colors.grey[600],\line
+                        ),\line
+                    overflow: TextOverflow.ellipsis,\line
+                  ),\line
+                ],\line
+              ],\line
+            ),\line
+          ),\line
+        ),\line
+      ),\line
+    );\line
+  \}\line
+\}\line
+}

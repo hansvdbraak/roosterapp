@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Kalender body -->
+  <rect x="2" y="5" width="28" height="26" rx="3" fill="white" stroke="#1565C0" stroke-width="2"/>
+  <!-- Header balk -->
+  <rect x="2" y="5" width="28" height="9" rx="3" fill="#1565C0"/>
+  <rect x="2" y="11" width="28" height="3" fill="#1565C0"/>
+  <!-- Ringen -->
+  <rect x="9"  y="2" width="3" height="7" rx="1.5" fill="#1565C0"/>
+  <rect x="20" y="2" width="3" height="7" rx="1.5" fill="#1565C0"/>
+  <!-- Datum 31 -->
+  <text x="16" y="26" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#1565C0" text-anchor="middle">31</text>
+</svg>

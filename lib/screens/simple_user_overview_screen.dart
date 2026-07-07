@@ -525,9 +525,20 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
           ),
           const SizedBox(height: 24),
 
+          // Wekelijks overzicht
+          Text(
+            'Per week',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
+          _buildWeeklyBreakdownTable(quarterReservations, quarterStart, quarterEnd),
+          const SizedBox(height: 24),
+
           // Uren overzicht titel
           Text(
-            'Uren per tijdsblok',
+            'Per tijdsblok',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -615,6 +626,118 @@ class _SimpleUserOverviewScreenState extends State<SimpleUserOverviewScreen> {
             const SizedBox(height: 12),
             _buildReservationsList(quarterReservations),
           ],
+        ],
+      ),
+    );
+  }
+
+  int _getWeekNumber(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final days = date.difference(firstDayOfYear).inDays;
+    return ((days + firstDayOfYear.weekday - 1) / 7).ceil();
+  }
+
+  Widget _buildWeeklyBreakdownTable(List<Reservation> reservations, DateTime quarterStart, DateTime quarterEnd) {
+    final Map<DateTime, List<Reservation>> byWeek = {};
+    for (final res in reservations) {
+      final d = res.date;
+      final monday = DateTime(d.year, d.month, d.day - (d.weekday - 1));
+      byWeek.putIfAbsent(monday, () => []).add(res);
+    }
+
+    // First Monday on or before quarterStart
+    final startMonday = quarterStart.subtract(Duration(days: quarterStart.weekday - 1));
+
+    // All weeks in the quarter range
+    final List<DateTime> allWeeks = [];
+    DateTime current = startMonday;
+    while (!current.isAfter(quarterEnd)) {
+      allWeeks.add(current);
+      current = current.add(const Duration(days: 7));
+    }
+
+    if (allWeeks.isEmpty) return const SizedBox.shrink();
+
+    final totalSt = reservations.length;
+    final totalHours = totalSt * 0.5;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  const SizedBox(width: 44, child: Text('Week', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Expanded(child: Text('Periode', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  const SizedBox(width: 52, child: Text('Uren', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  const SizedBox(width: 36, child: Text('St', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            for (final weekStart in allWeeks) ...[
+              _buildWeekRow(weekStart, byWeek[weekStart] ?? []),
+            ],
+            const Divider(height: 1),
+            // Totaal rij
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  const SizedBox(width: 44, child: Text('Totaal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  const Expanded(child: SizedBox()),
+                  SizedBox(width: 52, child: Text(
+                    totalHours.toStringAsFixed(1),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  )),
+                  SizedBox(width: 36, child: Text(
+                    '$totalSt',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  )),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeekRow(DateTime weekStart, List<Reservation> weekReservations) {
+    final weekEnd = weekStart.add(const Duration(days: 4));
+    final weekNumber = _getWeekNumber(weekStart);
+    final hours = weekReservations.length * 0.5;
+    final count = weekReservations.length;
+    final isEmpty = count == 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 44, child: Text(
+            'W$weekNumber',
+            style: TextStyle(fontSize: 12, color: isEmpty ? Colors.grey[400] : null),
+          )),
+          Expanded(child: Text(
+            '${DateFormat('d MMM', 'nl').format(weekStart)} – ${DateFormat('d MMM', 'nl').format(weekEnd)}',
+            style: TextStyle(fontSize: 11, color: isEmpty ? Colors.grey[400] : Colors.grey[600]),
+          )),
+          SizedBox(width: 52, child: Text(
+            isEmpty ? '–' : hours.toStringAsFixed(1),
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 12, color: isEmpty ? Colors.grey[400] : null),
+          )),
+          SizedBox(width: 36, child: Text(
+            isEmpty ? '–' : '$count',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 12, color: isEmpty ? Colors.grey[400] : null),
+          )),
         ],
       ),
     );
