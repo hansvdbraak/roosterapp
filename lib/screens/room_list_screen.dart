@@ -437,8 +437,8 @@ class _RoomCard extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.1),
-                          Colors.black.withOpacity(0.35),
+                          Colors.black.withValues(alpha: 0.1),
+                          Colors.black.withValues(alpha: 0.35),
                         ],
                       ),
                     ),

@@ -53,6 +53,9 @@ dependencies:
   # URL Launcher for phone/WhatsApp links
   url_launcher: ^6.2.5
 
+  # Web interop (CSV download)
+  web: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

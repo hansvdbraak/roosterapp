@@ -1,5 +1,5 @@
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import '../services/serverpod_client.dart';
 import '../models/reservation.dart';
 
@@ -88,13 +88,16 @@ Future<void> exportReservationsCSV({required int year, required int quarter}) as
   }
 
   final csvContent = buffer.toString();
-  final bytes = html.Blob([csvContent], 'text/csv;charset=utf-8');
-  final url = html.Url.createObjectUrlFromBlob(bytes);
-  final anchor = html.document.createElement('a') as html.AnchorElement
+  final blob = web.Blob(
+    [csvContent.toJS].toJS,
+    web.BlobPropertyBag(type: 'text/csv;charset=utf-8'),
+  );
+  final url = web.URL.createObjectURL(blob);
+  (web.document.createElement('a') as web.HTMLAnchorElement)
     ..href = url
     ..setAttribute('download', 'reserveringen_Q${quarter}_$year.csv')
     ..click();
-  html.Url.revokeObjectUrl(url);
+  web.URL.revokeObjectURL(url);
 }
 
 void _writeTotaal(StringBuffer buffer, String bookerName, int slotCount) {
