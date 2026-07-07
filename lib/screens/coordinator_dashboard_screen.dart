@@ -329,7 +329,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Bekijk de uren per standaard gebruiker',
+            'Bekijk de uren per ambassadeur',
             style: TextStyle(color: Colors.grey[600]),
           ),
           const SizedBox(height: 48),
@@ -607,7 +607,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     final weekEnd = weekStart.add(const Duration(days: 6));
     final weekNumber = _getWeekNumber(weekStart);
 
-    // Verzamel uren per eenvoudige gebruiker
+    // Verzamel uren per ambassadeur
     final eenvoudigUsers = _getEenvoudigUsersWithHours(
       reservationProvider,
       roomProvider,
@@ -652,7 +652,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
     final quarterEnd = DateTime(_selectedYear, startMonth + 3, 0);
     final daysInQuarter = quarterEnd.difference(quarterStart).inDays + 1;
 
-    // Verzamel uren per eenvoudige gebruiker
+    // Verzamel uren per ambassadeur
     final eenvoudigUsers = _getEenvoudigUsersWithHours(
       reservationProvider,
       roomProvider,
@@ -741,11 +741,11 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
       ...slotsCol3ByUser.keys,
     };
 
-    // Filter alleen eenvoudige gebruikers
+    // Filter alleen ambassadeurs
     final eenvoudigUsers = <_UserHours>[];
     for (final name in allNames) {
       final user = authProvider.getUserByName(name);
-      // Alleen eenvoudige gebruikers tonen
+      // Alleen ambassadeurs tonen
       if (user != null && user.role == UserRole.gebruikerEenvoud) {
         eenvoudigUsers.add(_UserHours(
           name: name,
@@ -924,7 +924,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Alleen standaard gebruikers (dagdeel-boekingen)',
+                          'Alleen ambassadeurs (dagdeel-boekingen)',
                           style: TextStyle(
                             color: Colors.blue[700],
                             fontSize: 13,
@@ -972,7 +972,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                     Icon(Icons.person_off, size: 48, color: Colors.grey[400]),
                     const SizedBox(height: 8),
                     Text(
-                      'Geen standaard gebruikers hebben geboekt',
+                      'Geen ambassadeurs hebben geboekt',
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                   ],
@@ -1006,7 +1006,7 @@ class _CoordinatorDashboardScreenState extends State<CoordinatorDashboardScreen>
                       ),
                       const Spacer(),
                       Text(
-                        '${users.length} standaard gebruikers',
+                        '${users.length} ambassadeurs',
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ],

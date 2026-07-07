@@ -9,9 +9,7 @@ import '../models/user.dart';
 import '../models/time_slot.dart';
 import 'welcome_screen.dart';
 import 'room_detail_screen.dart';
-import 'add_room_screen.dart';
 import 'user_management_screen.dart';
-import 'coordinator_dashboard_screen.dart';
 import 'simple_user_overview_screen.dart';
 import 'profile_screen.dart';
 
@@ -24,7 +22,8 @@ class RoomListScreen extends StatefulWidget {
 
 class _RoomListScreenState extends State<RoomListScreen> {
   DateTime _selectedDate = () { final n = DateTime.now(); return DateTime.utc(n.year, n.month, n.day); }();
-  bool _showRooms = false;
+  // null = keuze-dashboard, 'reserveren' = slot-view, 'bezetting' = dagdeel-view
+  String? _coordinatorMode;
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -67,20 +66,40 @@ class _RoomListScreenState extends State<RoomListScreen> {
     final reservationProvider = context.watch<ReservationProvider>();
 
     final isStandaardGebruiker = authProvider.userRole == UserRole.gebruikerEenvoud;
+    final showDashboard = authProvider.isCoordinator && _coordinatorMode == null;
+    final isBezetting = _coordinatorMode == 'bezetting';
 
-    // Coordinator én superuser krijgen het dashboard (tenzij ze naar ruimtelijst navigeerden)
-    final showDashboard = authProvider.isCoordinator && !_showRooms;
+    String appBarTitle = 'Ruimtes';
+    if (showDashboard) appBarTitle = 'Overzicht';
+    if (_coordinatorMode == 'reserveren') appBarTitle = 'Ruimte reserveren';
+    if (_coordinatorMode == 'bezetting') appBarTitle = 'Bezetting bekijken';
 
     return Scaffold(
       appBar: AppBar(
-        leading: authProvider.isCoordinator && _showRooms
+        leading: authProvider.isCoordinator && _coordinatorMode != null
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _showRooms = false),
+                onPressed: () => setState(() => _coordinatorMode = null),
               )
             : null,
+        leadingWidth: authProvider.isCoordinator && _coordinatorMode != null ? 48 : null,
         automaticallyImplyLeading: false,
-        title: Text(showDashboard ? 'Overzicht' : 'Ruimtes'),
+        title: authProvider.isCoordinator && _coordinatorMode != null
+            ? Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _coordinatorMode = null),
+                    child: const Text(
+                      'Terug naar vorig menu',
+                      style: TextStyle(fontSize: 14, color: Colors.deepOrange),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(appBarTitle),
+                  const Spacer(),
+                ],
+              )
+            : Text(appBarTitle),
         actions: [
           if (!showDashboard)
             TextButton.icon(
@@ -106,11 +125,6 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 case 'users':
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const UserManagementScreen()),
-                  );
-                  break;
-                case 'dashboard':
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CoordinatorDashboardScreen()),
                   );
                   break;
                 case 'user_overview':
@@ -185,11 +199,10 @@ class _RoomListScreenState extends State<RoomListScreen> {
           ? _buildCoordinatorDashboard(context)
           : Builder(
               builder: (context) {
-                // Filter alleen actieve ruimtes
                 final activeRooms = roomProvider.rooms.where((r) => r.isBookable).toList()
                   ..sort((a, b) => a.name.compareTo(b.name));
 
-                // Standaard gebruikers zien alleen Trefpunt Ambassadeurs en Trefpunt Aquarium
+                // Ambassadeurs zien alleen Trefpunt Ambassadeurs en Trefpunt Aquarium
                 final visibleRooms = isStandaardGebruiker
                     ? activeRooms
                         .where((r) =>
@@ -199,9 +212,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
                     : activeRooms;
 
                 if (visibleRooms.isEmpty) {
-                  return const Center(
-                    child: Text('Geen ruimtes beschikbaar'),
-                  );
+                  return const Center(child: Text('Geen ruimtes beschikbaar'));
                 }
 
                 return SingleChildScrollView(
@@ -220,6 +231,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
                               builder: (_) => RoomDetailScreen(
                                 room: room,
                                 initialDate: _selectedDate,
+                                forceDayPartView: isBezetting,
                               ),
                             ),
                           );
@@ -234,8 +246,10 @@ class _RoomListScreenState extends State<RoomListScreen> {
   }
 
   Widget _buildCoordinatorDashboard(BuildContext context) {
-    final isSuperuser = context.read<AuthProvider>().isSuperuser;
-    return Padding(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -244,53 +258,31 @@ class _RoomListScreenState extends State<RoomListScreen> {
           _CoordinatorActionCard(
             icon: Icons.meeting_room,
             title: 'Ruimte reserveren',
-            subtitle: 'Bekijk en reserveer beschikbare ruimtes',
+            subtitle: 'Reserveer een ruimte per half uur',
             color: Colors.blue,
-            onTap: () => setState(() => _showRooms = true),
+            onTap: () => setState(() => _coordinatorMode = 'reserveren'),
           ),
           const SizedBox(height: 16),
           _CoordinatorActionCard(
-            icon: Icons.analytics,
-            title: 'Bezettingsoverzicht',
-            subtitle: 'Bekijk de bezetting per week of kwartaal',
+            icon: Icons.calendar_view_week,
+            title: 'Bezetting bekijken',
+            subtitle: 'Bekijk wie een ruimte heeft gereserveerd',
             color: Colors.orange,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CoordinatorDashboardScreen()),
-            ),
+            onTap: () => setState(() => _coordinatorMode = 'bezetting'),
           ),
           const SizedBox(height: 16),
           _CoordinatorActionCard(
-            icon: Icons.people_outline,
-            title: 'Standaard gebruikers',
-            subtitle: 'Bekijk overzicht van standaard gebruikers',
+            icon: Icons.people,
+            title: 'Gebruikersbeheer',
+            subtitle: 'Bekijk en beheer alle gebruikers',
             color: Colors.teal,
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SimpleUserOverviewScreen()),
+              MaterialPageRoute(builder: (_) => const UserManagementScreen()),
             ),
           ),
-          if (isSuperuser) ...[
-            const SizedBox(height: 16),
-            _CoordinatorActionCard(
-              icon: Icons.add_home_work,
-              title: 'Ruimte toevoegen',
-              subtitle: 'Maak een nieuwe ruimte aan',
-              color: Colors.green,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AddRoomScreen()),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _CoordinatorActionCard(
-              icon: Icons.manage_accounts,
-              title: 'Gebruikersbeheer',
-              subtitle: 'Beheer gebruikers en rollen',
-              color: Colors.purple,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const UserManagementScreen()),
-              ),
-            ),
-          ],
         ],
+      ),
+        ),
       ),
     );
   }
@@ -377,23 +369,10 @@ class _RoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reservations = reservationProvider.getReservationsForRoom(room.id, selectedDate);
-    final totalSlots = 28;
     final bookedSlots = reservations.length;
-    final availableSlots = totalSlots - bookedSlots;
-
-    // Bepaal status kleur
-    Color statusColor;
-    String statusText;
-    if (bookedSlots == 0) {
-      statusColor = const Color(0xFFFF2800); // Ferrari rood = beschikbaar
-      statusText = 'Beschikbaar';
-    } else if (bookedSlots == totalSlots) {
-      statusColor = Colors.red;
-      statusText = 'Volledig bezet';
-    } else {
-      statusColor = Colors.orange;
-      statusText = '$availableSlots/$totalSlots vrij';
-    }
+    final Color statusColor = bookedSlots == 0
+        ? const Color(0xFFFF2800)
+        : bookedSlots == 28 ? Colors.red : Colors.orange;
 
     // Huidige/volgende reservering
     String? currentBooker;
@@ -458,8 +437,8 @@ class _RoomCard extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.1),
-                          Colors.black.withOpacity(0.35),
+                          Colors.black.withValues(alpha: 0.1),
+                          Colors.black.withValues(alpha: 0.35),
                         ],
                       ),
                     ),
@@ -508,28 +487,6 @@ class _RoomCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time,
-                      size: 16,
-                      color: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                          ? (statusText == 'Beschikbaar' ? const Color(0xFFFF2800) : Colors.white)
-                          : statusColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        color: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                            ? (statusText == 'Beschikbaar' ? const Color(0xFFFF2800) : Colors.white)
-                            : statusColor,
-                        fontWeight: statusText == 'Beschikbaar' ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
                 if (currentBooker != null) ...[
                   const SizedBox(height: 4),
                   Text(

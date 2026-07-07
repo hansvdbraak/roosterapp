@@ -13,11 +13,13 @@ import '../widgets/app_header.dart';
 class RoomDetailScreen extends StatefulWidget {
   final Room room;
   final DateTime initialDate;
+  final bool forceDayPartView;
 
   const RoomDetailScreen({
     super.key,
     required this.room,
     required this.initialDate,
+    this.forceDayPartView = false,
   });
 
   @override
@@ -37,6 +39,28 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final today = DateTime.utc(now.year, now.month, now.day);
     // Snap naar maandag van de huidige week (weekday: 1=ma, 7=zo)
     _dayPartWeekStart = today.subtract(Duration(days: today.weekday - 1));
+    // Preload reserveringen voor alle zichtbare dagdeel-datums
+    WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+  }
+
+  bool _effectiveCanBookHalfHour(bool canBookHalfHour) =>
+      canBookHalfHour || widget.room.name == 'Trefpunt Aquarium';
+
+  /// Laad reserveringen proactief voor de 14 zichtbare dagen (2 weken) in dagdeel-modus.
+  void _preloadDayPartDates() {
+    if (!mounted) return;
+    final authProvider = context.read<AuthProvider>();
+    final canBookHalfHour = _effectiveCanBookHalfHour(
+        authProvider.currentSession?.canBookHalfHour ?? false);
+    final isDayPart = !canBookHalfHour || (authProvider.isCoordinator && widget.forceDayPartView);
+    if (!isDayPart || widget.room.isObsolete) return;
+    final reservationProvider = context.read<ReservationProvider>();
+    for (int i = 0; i < 14; i++) {
+      reservationProvider.loadReservations(
+        widget.room.id,
+        _dayPartWeekStart.add(Duration(days: i)),
+      );
+    }
   }
 
   void _previousDay() {
@@ -56,6 +80,46 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   Future<void> _bookSlot(TimeSlot slot) async {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
+
+    // Coordinator: keuze tussen zelf boeken of toewijzen aan gebruiker
+    if (authProvider.isCoordinator) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Slot beheren'),
+          content: Text('${widget.room.name} op ${slot.getDisplayTime()}'),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, 'self'),
+                    child: const Text('Boek voor mezelf'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, 'assign'),
+                    child: const Text('Wijs toe aan gebruiker'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, null),
+                    child: const Text('Annuleren'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      if (action == null || !mounted) return;
+      if (action == 'assign') {
+        await _assignUserToSlot(slot);
+        return;
+      }
+    }
 
     final choice = await showDialog<String>(
       context: context,
@@ -138,51 +202,163 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final authProvider = context.read<AuthProvider>();
     final reservationProvider = context.read<ReservationProvider>();
 
-    final confirm = await showDialog<bool>(
+    // Coordinator die iemand anders zijn slot wist: extra opties
+    String? action;
+    if (authProvider.isCoordinator && reservation.bookerName != authProvider.userName) {
+      action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Reservering van ${reservation.bookerName}'),
+          content: Text(widget.room.name),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, 'cancel'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('Wissen'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context, 'reassign'),
+                    child: const Text('Andere gebruiker toewijzen'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      if (action == null || !mounted) return;
+    } else {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Bevestig Annulering'),
+          content: Text(
+            'Wil je de reservering van ${reservation.bookerName} annuleren?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Terug'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Annuleren'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      action = 'cancel';
+    }
+
+    try {
+      await reservationProvider.cancelReservation(
+        reservationId: reservation.id,
+        userName: authProvider.userName,
+        isSuperuser: authProvider.isCoordinator,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reservering geannuleerd'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Na annulering: toewijzen aan andere gebruiker
+    if (action == 'reassign' && mounted) {
+      final slot = TimeSlot(date: _selectedDate, slotIndex: reservation.slotIndex);
+      await _assignUserToSlot(slot);
+    }
+  }
+
+  /// Coordinator: wijs een slot toe aan een ambassadeur
+  Future<void> _assignUserToSlot(TimeSlot slot) async {
+    final authProvider = context.read<AuthProvider>();
+    final reservationProvider = context.read<ReservationProvider>();
+
+    final simpleUsers = authProvider.allUsers
+        .where((u) => u.role == UserRole.gebruikerEenvoud)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (simpleUsers.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Geen ambassadeurs gevonden')),
+        );
+      }
+      return;
+    }
+
+    final selectedUser = await showDialog<User>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bevestig Annulering'),
-        content: Text(
-          'Wil je de reservering van ${reservation.bookerName} annuleren?',
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wijs toe aan gebruiker'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: simpleUsers.length,
+            itemBuilder: (_, i) => ListTile(
+              title: Text(simpleUsers[i].name),
+              onTap: () => Navigator.pop(ctx, simpleUsers[i]),
+            ),
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Terug'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuleren'),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
-      try {
-        await reservationProvider.cancelReservation(
-          reservationId: reservation.id,
-          userName: authProvider.userName,
-          isSuperuser: authProvider.isSuperuser,
+    if (selectedUser == null || !mounted) return;
+
+    try {
+      await reservationProvider.createReservation(
+        roomId: widget.room.id,
+        bookerName: selectedUser.name,
+        date: _selectedDate,
+        slotIndex: slot.slotIndex,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Slot toegewezen aan ${selectedUser.name}'),
+            backgroundColor: Colors.green,
+          ),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reservering geannuleerd'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -324,10 +500,196 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     }
   }
 
+  /// Coordinator: vrij dagdeel boeken voor zichzelf of toewijzen aan ambassadeur
+  Future<void> _bookDayPartAsCoordinator(DayPart dayPart, DateTime date) async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dagdeel beheren'),
+        content: Text('${dayPart.displayName} (${dayPart.timeRange})'),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, 'self'),
+                  child: const Text('Boek voor mezelf'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context, 'assign'),
+                  child: const Text('Wijs toe aan ambassadeur'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Annuleren'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (action == null || !mounted) return;
+    if (action == 'assign') {
+      await _assignUserToDayPart(dayPart, date);
+      return;
+    }
+    // Boek voor mezelf
+    await _bookDayPart(dayPart, date);
+  }
+
+  /// Coordinator: bezet dagdeel wissen of wissen + opnieuw toewijzen
+  Future<void> _cancelDayPartAsCoordinator(DayPart dayPart, DateTime date, String bookerName) async {
+    final authProvider = context.read<AuthProvider>();
+    final reservationProvider = context.read<ReservationProvider>();
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Reservering van $bookerName'),
+        content: Text('${dayPart.displayName} (${dayPart.timeRange})'),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, 'cancel'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Wissen'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context, 'reassign'),
+                  child: const Text('Andere gebruiker toewijzen'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    try {
+      await reservationProvider.cancelDayPartReservation(
+        roomId: widget.room.id,
+        date: date,
+        dayPart: dayPart,
+        userName: bookerName,
+        isSuperuser: authProvider.isCoordinator,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${dayPart.displayName} van $bookerName geannuleerd'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (action == 'reassign' && mounted) {
+      await _assignUserToDayPart(dayPart, date);
+    }
+  }
+
+  /// Coordinator: wijs een dagdeel toe aan een ambassadeur
+  Future<void> _assignUserToDayPart(DayPart dayPart, DateTime date) async {
+    final authProvider = context.read<AuthProvider>();
+    final reservationProvider = context.read<ReservationProvider>();
+
+    final ambassadeurs = authProvider.allUsers
+        .where((u) => u.role == UserRole.gebruikerEenvoud)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (ambassadeurs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Geen ambassadeurs gevonden')),
+        );
+      }
+      return;
+    }
+
+    final selectedUser = await showDialog<User>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wijs toe aan ambassadeur'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: ambassadeurs.length,
+            itemBuilder: (_, i) => ListTile(
+              title: Text(ambassadeurs[i].name),
+              onTap: () => Navigator.pop(ctx, ambassadeurs[i]),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuleren'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedUser == null || !mounted) return;
+
+    try {
+      await reservationProvider.createDayPartReservation(
+        roomId: widget.room.id,
+        bookerName: selectedUser.name,
+        date: date,
+        dayPart: dayPart,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${dayPart.displayName} toegewezen aan ${selectedUser.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   bool get _allowsEveningBooking {
     final name = widget.room.name.toLowerCase();
-    return name.contains('trefpunt aquarium') || name.contains('de kuil in het gemeentehuis');
+    return name.contains('trefpunt aquarium') ||
+        name.contains('de kuil in het gemeentehuis') ||
+        name.contains('trefpunt ambassadeurs');
   }
+
+  bool get _isAmbassadeursWeekView =>
+      widget.room.name == 'Trefpunt Ambassadeurs';
 
   Future<void> _deleteRoom() async {
     final roomProvider = context.read<RoomProvider>();
@@ -381,7 +743,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final canBookHalfHour = authProvider.currentSession?.canBookHalfHour ?? false;
+    final canBookHalfHour = _effectiveCanBookHalfHour(
+        authProvider.currentSession?.canBookHalfHour ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -424,11 +787,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       ),
       body: Column(
         children: [
-          // Room info & date navigation (alleen voor slot-gebruikers en overbodig)
-          if (canBookHalfHour || widget.room.isObsolete) _buildHeader(context),
+          // Room info & date navigation (niet voor week-dagdeel-modus)
+          if (!(authProvider.isCoordinator && widget.forceDayPartView) && !_isAmbassadeursWeekView) _buildHeader(context),
 
-          // Ruimteomschrijving voor dagdeel-gebruikers (geen datumnavigatie nodig)
-          if (!canBookHalfHour && !widget.room.isObsolete && widget.room.description != null)
+          // Ruimteomschrijving voor week-dagdeel-modus (coordinator bezetting + Trefpunt Ambassadeurs)
+          if (((authProvider.isCoordinator && widget.forceDayPartView) || _isAmbassadeursWeekView) && !widget.room.isObsolete && widget.room.description != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -465,7 +828,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           Expanded(
             child: widget.room.isObsolete
                 ? _buildObsoleteRoomView(context)
-                : canBookHalfHour
+                : (canBookHalfHour && !(authProvider.isCoordinator && widget.forceDayPartView))
                     ? _buildSlotView(context)
                     : _buildDayPartView(context),
           ),
@@ -567,18 +930,93 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 
-  /// Dagdeel weergave voor standaard gebruikers - 2 weken tabel gegroepeerd per week
+  /// Dagdeel weergave voor ambassadeurs - 2 weken naast elkaar, gelijke rijhoogtes
+  Widget _buildDayPartDayView(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final reservationProvider = context.watch<ReservationProvider>();
+    final now = DateTime.now();
+    final activeDayParts = DayPart.values
+        .where((dp) => dp != DayPart.avond || _allowsEveningBooking)
+        .toList();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: activeDayParts.map((dayPart) {
+        final status = reservationProvider.getDayPartStatus(
+          widget.room.id,
+          _selectedDate,
+          dayPart,
+          authProvider.userName,
+        );
+        final dayPartStart = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          8 + (dayPart.startSlotIndex ~/ 2),
+          (dayPart.startSlotIndex % 2) * 30,
+        );
+        final isPast = dayPartStart.isBefore(now);
+        final canBook = !isPast && status.isFullyAvailable;
+        final canCancel = !isPast && status.bookedByUser > 0;
+        final otherBookerName = status.firstOtherBookerName;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                color: Theme.of(context).colorScheme.primaryContainer.withAlpha(160),
+                child: Row(
+                  children: [
+                    Text(
+                      dayPart.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      dayPart.timeRange,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              _DayPartCell(
+                status: status,
+                isPast: isPast,
+                canBook: canBook,
+                canCancel: canCancel,
+                isCoordinatorManage: false,
+                coordinatorTap: null,
+                ownName: authProvider.userName,
+                otherBookerName: otherBookerName,
+                onBook: () => _bookDayPart(dayPart, _selectedDate),
+                onCancel: () => _cancelDayPart(dayPart, _selectedDate),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildDayPartView(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
     final now = DateTime.now();
     final today = DateTime.utc(now.year, now.month, now.day);
-    final canGoBack = _dayPartWeekStart.isAfter(today);
-    final endDate = _dayPartWeekStart.add(const Duration(days: 13));
-    final rangeLabel =
-        '${DateFormat('d MMM', 'nl').format(_dayPartWeekStart)} – ${DateFormat('d MMM', 'nl').format(endDate)}';
 
-    // ISO 8601 weeknummer berekening (geen DateFormat('w') — niet betrouwbaar in Flutter web)
+    // Ambassadeurs: per-dag weergave, behalve voor Trefpunt Ambassadeurs (altijd week)
+    if (!authProvider.isCoordinator && !_isAmbassadeursWeekView) {
+      return _buildDayPartDayView(context);
+    }
+
+    // Coordinators mogen ook weken terugkijken
+    final canGoBack = authProvider.isCoordinator || _dayPartWeekStart.isAfter(today);
+    final week2Start = _dayPartWeekStart.add(const Duration(days: 7));
+
+    // ISO 8601 weeknummer berekening
     int isoWeekNumber(DateTime date) {
       final d = DateTime.utc(date.year, date.month, date.day);
       final thu = d.add(Duration(days: 4 - d.weekday));
@@ -586,36 +1024,28 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       return (thu.difference(yearStart).inDays ~/ 7) + 1;
     }
 
-    // Bouw de rijen voor een week, voorafgegaan door een weekheader
-    List<Widget> buildWeekSection(DateTime weekStart) {
-      final weekNum = isoWeekNumber(weekStart);
-      return [
-        // Weeknummer header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          color: Theme.of(context).colorScheme.primaryContainer.withAlpha(160),
-          child: Text(
-            'Week $weekNum',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
-          ),
-        ),
-        const Divider(height: 1),
-        ...List.generate(7, (i) {
-          final date = weekStart.add(Duration(days: i));
-          return Column(
-            mainAxisSize: MainAxisSize.min,
+    final headerBg = Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(180);
+    final weekBg = Theme.of(context).colorScheme.primaryContainer.withAlpha(160);
+    final weekFg = Theme.of(context).colorScheme.onPrimaryContainer;
+    final activeDayParts = DayPart.values.where((dp) => dp != DayPart.avond || _allowsEveningBooking).toList();
+
+    // Gedeelde koptekst voor dagdeelkolommen
+    Widget dayPartHeader() => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          color: headerBg,
+          child: Row(
             children: [
-              _buildDayPartRow(context, date, now, authProvider, reservationProvider),
-              const Divider(height: 1),
+              const SizedBox(width: 52),
+              ...activeDayParts.map((dp) => Expanded(
+                    child: Text(
+                      dp.displayName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  )),
             ],
-          );
-        }),
-      ];
-    }
+          ),
+        );
 
     return Column(
       children: [
@@ -628,8 +1058,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             children: [
               OutlinedButton.icon(
                 onPressed: canGoBack
-                    ? () => setState(() => _dayPartWeekStart =
-                        DateTime.utc(_dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day - 7))
+                    ? () {
+                        setState(() => _dayPartWeekStart = DateTime.utc(
+                            _dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day - 7));
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+                      }
                     : null,
                 icon: const Icon(Icons.chevron_left, size: 18),
                 label: const Text('Vorige week', style: TextStyle(fontSize: 13)),
@@ -642,14 +1075,28 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  rangeLabel,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                child: GestureDetector(
+                  onTap: authProvider.isCoordinator
+                      ? () {
+                          final now = DateTime.now();
+                          final today = DateTime.utc(now.year, now.month, now.day);
+                          setState(() => _dayPartWeekStart =
+                              today.subtract(Duration(days: today.weekday - 1)));
+                          WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+                        }
+                      : null,
+                  child: Text(
+                    'Week ${isoWeekNumber(_dayPartWeekStart)} – ${isoWeekNumber(week2Start)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () => setState(() =>
-                    _dayPartWeekStart = DateTime.utc(_dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day + 7)),
+                onPressed: () {
+                  setState(() => _dayPartWeekStart = DateTime.utc(
+                      _dayPartWeekStart.year, _dayPartWeekStart.month, _dayPartWeekStart.day + 7));
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _preloadDayPartDates());
+                },
                 icon: const Icon(Icons.chevron_right, size: 18),
                 label: const Text('Volgende week', style: TextStyle(fontSize: 13)),
                 iconAlignment: IconAlignment.end,
@@ -663,33 +1110,69 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             ],
           ),
         ),
-        // Koptekst-rij dagdelen
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(180),
+        // Weeknummer headers naast elkaar
+        IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(width: 68),
-              ...DayPart.values
-                  .where((dp) => dp != DayPart.avond || _allowsEveningBooking)
-                  .map((dayPart) => Expanded(
-                        child: Text(
-                          dayPart.displayName,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      )),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  color: weekBg,
+                  child: Text('Week ${isoWeekNumber(_dayPartWeekStart)}',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: weekFg)),
+                ),
+              ),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  color: weekBg,
+                  child: Text('Week ${isoWeekNumber(week2Start)}',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: weekFg)),
+                ),
+              ),
             ],
           ),
         ),
         const Divider(height: 1),
-        // 14 dagen in 2 weekgroepen
-        Expanded(
-          child: ListView(
+        // Dagdeel-kopteksten naast elkaar
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ...buildWeekSection(_dayPartWeekStart),
-              ...buildWeekSection(_dayPartWeekStart.add(const Duration(days: 7))),
+              Expanded(child: dayPartHeader()),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(child: dayPartHeader()),
             ],
+          ),
+        ),
+        const Divider(height: 1),
+        // Dagrijen: per dag één Row zodat beide kanten even hoog zijn
+        Expanded(
+          child: ListView.separated(
+            itemCount: 7,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (_, i) {
+              final date1 = _dayPartWeekStart.add(Duration(days: i));
+              final date2 = week2Start.add(Duration(days: i));
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _buildDayPartRow(
+                          context, date1, now, authProvider, reservationProvider),
+                    ),
+                    const VerticalDivider(width: 1, thickness: 1),
+                    Expanded(
+                      child: _buildDayPartRow(
+                          context, date2, now, authProvider, reservationProvider),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -713,17 +1196,17 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
         children: [
           // Dag/datum kolom
           SizedBox(
-            width: 68,
+            width: 52,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   dayLabel,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 Text(
                   dateLabel,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
               ],
             ),
@@ -744,13 +1227,33 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               (dayPart.startSlotIndex % 2) * 30,
             );
             final isPast = dayPartStart.isBefore(now);
-            final canBook = !isPast && status.isFullyAvailable;
+            final canBook = !isPast && (status.isFullyAvailable || authProvider.isCoordinator);
             final canCancel = !isPast &&
                 (status.bookedByUser > 0 ||
-                    (authProvider.isSuperuser && status.hasAnyBookings));
+                    (authProvider.isCoordinator && status.hasAnyBookings));
 
-            // Naam van andere boeker zit al in status (vanuit dezelfde cache-loop)
+            // Naam van boeker voor cel-label (andere boeker of eigen naam)
             final otherBookerName = status.firstOtherBookerName;
+
+            // Coordinator bezetting: bereken onTap direct — geen conditielogica in de cel
+            // isCoordinatorManage: enkel voor bezetting-bekijken (visuele weergave verleden)
+            final bool isCoordinatorManage =
+                authProvider.isCoordinator && widget.forceDayPartView;
+            // coordinatorTap: gebruik de build-time status direct — de cel
+            // toont al de juiste bezetting, dus de tap moet daarmee in sync zijn.
+            VoidCallback? coordinatorTap;
+            if (authProvider.isCoordinator && !isPast) {
+              final capturedStatus = status;
+              final capturedOtherName = otherBookerName;
+              coordinatorTap = () {
+                if (capturedStatus.isFullyAvailable) {
+                  _bookDayPartAsCoordinator(dayPart, date);
+                } else if (capturedStatus.hasAnyBookings) {
+                  final bookerName = capturedOtherName ?? authProvider.userName;
+                  _cancelDayPartAsCoordinator(dayPart, date, bookerName);
+                }
+              };
+            }
 
             return Expanded(
               child: _DayPartCell(
@@ -758,6 +1261,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 isPast: isPast,
                 canBook: canBook,
                 canCancel: canCancel,
+                isCoordinatorManage: isCoordinatorManage,
+                coordinatorTap: coordinatorTap,
                 ownName: authProvider.userName,
                 otherBookerName: otherBookerName,
                 onBook: () => _bookDayPart(dayPart, date),
@@ -817,7 +1322,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
 
               final isAvailable = reservation == null;
               final isOwnReservation = reservation?.bookerName == authProvider.userName;
-              final canCancel = isOwnReservation || authProvider.isSuperuser;
+              final canCancel = isOwnReservation || authProvider.isCoordinator;
               final isPast = slot.startTime.isBefore(now);
 
               return _SlotTile(
@@ -874,6 +1379,8 @@ class _DayPartCell extends StatelessWidget {
   final bool isPast;
   final bool canBook;
   final bool canCancel;
+  final bool isCoordinatorManage;
+  final VoidCallback? coordinatorTap;
   final String? ownName;
   final String? otherBookerName;
   final VoidCallback onBook;
@@ -886,6 +1393,8 @@ class _DayPartCell extends StatelessWidget {
     required this.canCancel,
     required this.onBook,
     required this.onCancel,
+    this.isCoordinatorManage = false,
+    this.coordinatorTap,
     this.ownName,
     this.otherBookerName,
   });
@@ -895,24 +1404,30 @@ class _DayPartCell extends StatelessWidget {
     Color bgColor;
     String label;
 
-    if (isPast) {
+    // Coordinator bezetting terugkijken: verleden cellen tonen naam/Vrij in zwart op grijs
+    final showPastInfo = isCoordinatorManage && isPast;
+
+    if (isPast && !showPastInfo) {
       bgColor = const Color(0xFFDDDDDD);
       label = '';
     } else if (status.isFullyAvailable) {
-      bgColor = const Color(0xFFFF2800); // Ferrari rood = vrij
+      bgColor = showPastInfo ? const Color(0xFFDDDDDD) : const Color(0xFFFF2800);
       label = 'Vrij';
     } else if (status.bookedByOthers > 0) {
-      bgColor = const Color(0xFF4CBB17); // kikkergroen = bezet door ander
+      bgColor = showPastInfo ? const Color(0xFFDDDDDD) : const Color(0xFF4CBB17);
       label = otherBookerName ?? 'Bezet';
     } else if (status.bookedByUser > 0) {
-      bgColor = const Color(0xFF1565C0); // blauw = eigen boeking
+      bgColor = showPastInfo ? const Color(0xFFDDDDDD) : const Color(0xFF1565C0);
       label = ownName ?? 'Jij';
     } else {
       bgColor = const Color(0xFFDDDDDD);
       label = '';
     }
 
-    final tappable = !isPast && (canBook || canCancel);
+    // Verleden cellen zijn nooit aanklikbaar (ook niet voor coordinators)
+    final tappable = !isPast && (isCoordinatorManage
+        ? (status.hasAnyBookings || status.isFullyAvailable)
+        : (canBook || canCancel));
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
@@ -924,7 +1439,14 @@ class _DayPartCell extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: tappable ? (canBook ? onBook : onCancel) : null,
+          onTap: coordinatorTap ??
+              (!tappable
+                  ? null
+                  : status.isFullyAvailable
+                      ? onBook
+                      : canCancel
+                          ? onCancel
+                          : null),
           borderRadius: BorderRadius.circular(8),
           splashColor: Colors.white24,
           child: Padding(
@@ -934,9 +1456,9 @@ class _DayPartCell extends StatelessWidget {
                   ? const SizedBox.shrink()
                   : Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white,
+                        color: showPastInfo ? Colors.black87 : Colors.white,
                         fontWeight: FontWeight.w900,
                       ),
                       textAlign: TextAlign.center,

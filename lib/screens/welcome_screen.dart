@@ -220,40 +220,53 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.grey[300])),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'of',
-                        style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: Colors.grey[300])),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Registreren knop
                 Center(
                   child: IntrinsicWidth(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final name = _usernameController.text.trim();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => RegisterScreen(
-                              initialName: name.isNotEmpty ? name : null,
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Aanmelden knop
+                        ElevatedButton(
+                          onPressed: _login,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                      ),
-                      child: const Text('Nieuw account aanmaken', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Aanmelden', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(height: 24),
+                        // Divider
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey[300])),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'of',
+                                style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey[300])),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        // Registreren knop
+                        ElevatedButton(
+                          onPressed: () {
+                            final name = _usernameController.text.trim();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => RegisterScreen(
+                                  initialName: name.isNotEmpty ? name : null,
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          ),
+                          child: const Text('Nieuw account aanmaken', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
                     ),
                   ),
                 ),

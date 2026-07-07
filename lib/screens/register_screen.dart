@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -33,43 +31,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
   PasswordValidationResult? _passwordValidation;
   String? _usernameError;
   final _nameFocusNode = FocusNode();
-  Timer? _usernameDebounce;
 
   @override
   void initState() {
     super.initState();
     _passwordController.addListener(_onPasswordChanged);
-    _nameController.addListener(_onNameChanged);
+    _nameFocusNode.addListener(() {
+      if (!_nameFocusNode.hasFocus && _nameController.text.trim().isNotEmpty) {
+        _checkUsername();
+      }
+    });
     // Vul initiële naam in als meegegeven
     if (widget.initialName != null) {
       _nameController.text = widget.initialName!;
     }
   }
 
-  void _onNameChanged() {
-    _usernameDebounce?.cancel();
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      setState(() => _usernameError = null);
-      return;
-    }
-    _usernameDebounce = Timer(const Duration(milliseconds: 500), _checkUsername);
-  }
-
   Future<void> _checkUsername() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-    final exists = await context.read<AuthProvider>().isUsernameRegistered(name);
+    final exists = await context.read<AuthProvider>().isUsernameRegistered(_nameController.text.trim());
     if (mounted) {
       setState(() {
-        _usernameError = exists ? 'Deze gebruikersnaam is niet beschikbaar' : null;
+        _usernameError = exists ? 'Gebruiker bestaat al, kies een andere naam' : null;
       });
     }
   }
 
   @override
   void dispose() {
-    _usernameDebounce?.cancel();
     _nameFocusNode.dispose();
     _nameController.dispose();
     _emailController.dispose();
@@ -400,16 +388,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Registreer en terug knoppen
                 Center(
                   child: IntrinsicWidth(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Registreer knop
                         ElevatedButton(
                           onPressed: _isLoading ? null : _register,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -420,6 +408,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               : const Text('Registreren'),
                         ),
                         const SizedBox(height: 16),
+                        // Terug naar login
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           child: const Text('Al een account? Log in'),

@@ -30,7 +30,6 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
   bool _obscureConfirmPassword = true;
   bool _changePassword = false;
   PasswordValidationResult? _passwordValidation;
-  late UserRole _selectedRole;
 
   @override
   void initState() {
@@ -40,7 +39,6 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
   }
 
   void _loadUserData() {
-    _selectedRole = widget.user.role;
     _emailController.text = widget.user.email;
     _phoneController.text = widget.user.phoneNumber ?? '';
     _addressController.text = widget.user.address ?? '';
@@ -74,8 +72,7 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final authProvider = context.read<AuthProvider>();
-      await authProvider.adminUpdateUserProfile(
+      await context.read<AuthProvider>().adminUpdateUserProfile(
             userId: widget.user.id,
             email: _emailController.text,
             phoneNumber: _phoneController.text,
@@ -87,9 +84,6 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                 ? _newPasswordController.text
                 : null,
           );
-      if (_selectedRole != widget.user.role) {
-        await authProvider.updateUserRole(userId: widget.user.id, newRole: _selectedRole);
-      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,20 +138,18 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                // Rol sectie
-                Builder(builder: (context) {
-                  final isSuperuser = context.read<AuthProvider>().isSuperuser;
-                  final canChangeRole = isSuperuser && widget.user.name != 'Admin';
-
-                  if (!isSuperuser) {
-                    return Card(
-                      color: Colors.purple[50],
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
+                // Rol info (niet bewerkbaar)
+                Card(
+                  color: Colors.purple[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.security, color: Colors.purple[700]),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.security, color: Colors.purple[700]),
-                            const SizedBox(width: 12),
                             Text(
                               'Rol: ${widget.user.role.displayName}',
                               style: TextStyle(
@@ -165,69 +157,19 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                                 color: Colors.purple[700],
                               ),
                             ),
+                            Text(
+                              'Rolwijziging gaat via het popup menu in gebruikersbeheer',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.purple[600],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    );
-                  }
-
-                  return Card(
-                    color: Colors.purple[50],
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.security, color: Colors.purple[700]),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Rol',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.purple[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (!canChangeRole) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Huidige rol: ${widget.user.role.displayName}',
-                              style: TextStyle(color: Colors.purple[600], fontSize: 13),
-                            ),
-                            Text(
-                              widget.user.name == 'Admin'
-                                  ? 'De Admin-rol kan niet worden gewijzigd'
-                                  : 'Superuser-rol wordt beheerd via gebruikersbeheer',
-                              style: TextStyle(color: Colors.purple[400], fontSize: 12),
-                            ),
-                          ] else ...[
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                UserRole.gebruikerEenvoud,
-                                UserRole.gebruiker,
-                                UserRole.coordinator,
-                                if (widget.user.role == UserRole.coordinator ||
-                                    widget.user.role == UserRole.superuser)
-                                  UserRole.superuser,
-                              ].map((role) => ChoiceChip(
-                                label: Text(role.displayName),
-                                selected: _selectedRole == role,
-                                onSelected: (_) => setState(() => _selectedRole = role),
-                                selectedColor: Colors.purple[200],
-                              )).toList(),
-                            ),
-                          ],
-                        ],
-                      ),
+                      ],
                     ),
-                  );
-                }),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Naam (niet bewerkbaar)
@@ -489,16 +431,16 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Opslaan en Annuleren knoppen
                 Center(
                   child: IntrinsicWidth(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Opslaan knop
                         ElevatedButton(
                           onPressed: _isLoading ? null : _saveProfile,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -509,10 +451,11 @@ class _AdminEditUserScreenState extends State<AdminEditUserScreen> {
                               : const Text('Opslaan'),
                         ),
                         const SizedBox(height: 16),
+                        // Annuleren knop
                         OutlinedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
                           ),
                           child: const Text('Annuleren'),
                         ),
